@@ -1,0 +1,2628 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriTrack Pro - Gestão Nutricional Adaptativa</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Firebase SDK v10 (Compat para uso direto em arquivo único HTML) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
+
+    <div id="app" class="min-h-full flex flex-col">
+        <!-- TOP USER & PROFILE BAR (100% RESPONSIVO NO MOBILE) -->
+        <div class="bg-slate-900 text-white border-b border-slate-800 px-4 sm:px-6 lg:px-8 py-3">
+            <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
+                        <i data-lucide="users" class="w-4 h-4 text-brand-500"></i> Perfil:
+                    </span>
+                    <div id="user-selector-pills" class="flex flex-wrap items-center gap-1.5">
+                        <!-- Renderizado via JS -->
+                    </div>
+                    <button onclick="openNewUserModal()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-brand-400 border border-slate-700 flex items-center gap-1 transition">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Novo
+                    </button>
+                </div>
+
+                <div class="flex items-center">
+                    <span id="active-user-goal-tag" class="px-2.5 py-1 rounded-md bg-brand-500/20 text-brand-300 border border-brand-500/30 font-medium text-xs truncate max-w-full">
+                        Plano Prescrito
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- HEADER -->
+        <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                    <div class="bg-brand-500 text-white p-2 rounded-xl shadow-md shrink-0">
+                        <i data-lucide="utensils" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <h1 class="text-base sm:text-xl font-bold tracking-tight leading-tight">NutriTrack Pro</h1>
+                            <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-brand-500/15 text-brand-600 dark:text-brand-400">Firestore</span>
+                        </div>
+                        <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Substituições do Nutricionista + Balanço TACO & Cascata</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
+                    <button onclick="openGoalsModal()" class="flex items-center space-x-1 p-2 sm:px-3 sm:py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium transition" title="Metas">
+                        <i data-lucide="target" class="w-4 h-4 text-brand-500"></i>
+                        <span class="hidden md:inline">Metas</span>
+                    </button>
+                    <button onclick="openAddFoodModal()" class="flex items-center space-x-1 p-2 sm:px-3 sm:py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium shadow-sm transition" title="Novo Alimento">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span class="hidden md:inline">Novo Alimento</span>
+                    </button>
+                    <button onclick="exportBackup()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Exportar Backup JSON">
+                        <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                    </button>
+                    <label class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer" title="Importar Backup JSON">
+                        <i data-lucide="upload" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                        <input type="file" accept=".json" onchange="importBackup(event)" class="hidden">
+                    </label>
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Alternar Tema">
+                        <i data-lucide="moon" class="w-4 h-4 sm:w-5 sm:h-5 hidden dark:block"></i>
+                        <i data-lucide="sun" class="w-4 h-4 sm:w-5 sm:h-5 block dark:hidden"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- NAVIGATION TABS -->
+        <nav class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-7xl mx-auto flex space-x-5 sm:space-x-8 overflow-x-auto no-scrollbar">
+                <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-brand-500 text-brand-600 dark:text-brand-400 flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span>Painel Diário</span>
+                </button>
+                <button onclick="switchTab('prescribed')" id="tab-btn-prescribed" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                    <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+                    <span>Plano Base</span>
+                </button>
+                <button onclick="switchTab('foods')" id="tab-btn-foods" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                    <i data-lucide="database" class="w-4 h-4"></i>
+                    <span>Tabela TACO (<span id="total-foods-badge">0</span>)</span>
+                </button>
+                <button onclick="switchTab('history')" id="tab-btn-history" class="py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                    <span>Histórico</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+            
+            <!-- TAB 1: PAINEL DIÁRIO -->
+            <div id="tab-dashboard" class="space-y-6">
+                
+                <!-- BANNER DE SALDO ACUMULADO & COMPENSAÇÃO ADAPTATIVA -->
+                <div id="adaptive-status-banner" class="p-4 rounded-2xl border shadow-sm transition-all">
+                    <!-- Preenchido via JS -->
+                </div>
+
+                <!-- RESUMO DE MACROS DO DIA -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+                    <div class="col-span-2 md:col-span-1 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Calorias</span>
+                            <span id="stat-kcal-pct" class="text-xs font-bold text-brand-600">0%</span>
+                        </div>
+                        <div class="flex items-baseline space-x-1">
+                            <span id="stat-kcal-current" class="text-2xl font-black">0</span>
+                            <span class="text-xs sm:text-sm text-slate-400">/ <span id="stat-kcal-goal">0</span> kcal</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2.5 overflow-hidden">
+                            <div id="bar-kcal" class="bg-brand-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-blue-500">Proteínas</span>
+                            <span id="stat-prot-pct" class="text-xs font-bold text-blue-600">0%</span>
+                        </div>
+                        <div class="flex items-baseline space-x-1">
+                            <span id="stat-prot-current" class="text-xl sm:text-2xl font-black">0g</span>
+                            <span class="text-xs text-slate-400">/ <span id="stat-prot-goal">0</span>g</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2.5 overflow-hidden">
+                            <div id="bar-prot" class="bg-blue-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-amber-500">Carboidratos</span>
+                            <span id="stat-carb-pct" class="text-xs font-bold text-amber-600">0%</span>
+                        </div>
+                        <div class="flex items-baseline space-x-1">
+                            <span id="stat-carb-current" class="text-xl sm:text-2xl font-black">0g</span>
+                            <span class="text-xs text-slate-400">/ <span id="stat-carb-goal">0</span>g</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2.5 overflow-hidden">
+                            <div id="bar-carb" class="bg-amber-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-purple-500">Gorduras</span>
+                            <span id="stat-gord-pct" class="text-xs font-bold text-purple-600">0%</span>
+                        </div>
+                        <div class="flex items-baseline space-x-1">
+                            <span id="stat-gord-current" class="text-xl sm:text-2xl font-black">0g</span>
+                            <span class="text-xs text-slate-400">/ <span id="stat-gord-goal">0</span>g</span>
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2.5 overflow-hidden">
+                            <div id="bar-gord" class="bg-purple-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-emerald-500">Fibras</span>
+                            <span id="stat-fibra-current" class="text-base sm:text-lg font-bold">0g</span>
+                        </div>
+                        <button onclick="finalizeDay()" class="w-full mt-2 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center space-x-1">
+                            <i data-lucide="check-circle" class="w-4 h-4"></i>
+                            <span>Finalizar Dia</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- COLUNAS PRINCIPAIS: REFEIÇÕES DO PLANO ADAPTATIVO + LANÇAMENTO AVULSO -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- COLUNA PRINCIPAL (REFEIÇÕES DO PLANO COM DROPDOWN DE SUBSTITUIÇÕES DO NUTRICIONISTA) -->
+                    <div class="lg:col-span-2 space-y-5 order-1" id="meals-container">
+                        <!-- Preenchido via JS -->
+                    </div>
+
+                    <!-- COLUNA LATERAL: BUSCAR E ADICIONAR ALIMENTO EXTRA / AVULSO -->
+                    <div id="avulso-box" class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 h-fit order-2">
+                        <h2 class="text-lg font-bold flex items-center space-x-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-brand-500"></i>
+                            <span>Adicionar Item Extra / Avulso</span>
+                        </h2>
+                        <p class="text-xs text-slate-500">Para trocas equivalentes da dieta, use a lista suspensa direto dentro de cada refeição. Use esta busca apenas para alimentos fora da lista.</p>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Refeição</label>
+                            <select id="select-meal" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                <option value="Café da Manhã">06:00 - Café da Manhã</option>
+                                <option value="Lanche da Manhã">10:00 - Lanche da Manhã</option>
+                                <option value="Almoço">12:00 - Almoço</option>
+                                <option value="Lanche da Tarde">16:00 - Lanche da Tarde</option>
+                                <option value="Jantar">20:00 - Jantar</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Filtrar por Categoria</label>
+                            <select id="filter-category-select" onchange="filterFoodList()" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                <option value="">Todas as Categorias</option>
+                                <option value="Suplemento">Suplementos</option>
+                                <option value="Carnes, Aves, Peixes e Ovos">Carnes, Aves, Peixes e Ovos</option>
+                                <option value="Cereais, Grãos, Massas e Tubérculos">Cereais, Grãos, Massas e Tubérculos</option>
+                                <option value="Leguminosas e Proteínas Vegetais">Leguminosas e Proteínas Vegetais</option>
+                                <option value="Laticínios e Derivados">Laticínios e Derivados</option>
+                                <option value="Frutas">Frutas</option>
+                                <option value="Hortaliças, Verduras e Legumes">Hortaliças, Verduras e Legumes</option>
+                                <option value="Oleaginosas, Gorduras e Açúcares">Oleaginosas, Gorduras e Açúcares</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Buscar Alimento / Suplemento</label>
+                            <input type="text" id="food-search-input" oninput="filterFoodList()" placeholder="Ex: Maçã, Pão, Frango, Blend..." class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+
+                        <div id="food-search-results" class="max-h-60 overflow-y-auto space-y-1 pr-1 border border-slate-100 dark:border-slate-800 rounded-xl p-1">
+                            <!-- Preenchido via JS -->
+                        </div>
+
+                        <div id="selected-food-container" class="hidden p-3 bg-brand-50 dark:bg-slate-800/50 rounded-xl border border-brand-200 dark:border-slate-700 space-y-3">
+                            <input type="hidden" id="selected-food-id">
+                            <div>
+                                <span id="selected-food-name" class="font-bold text-sm block">Nome do Alimento</span>
+                                <span id="selected-food-base" class="text-xs text-slate-500">Base: 100g</span>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Quantidade Consumida (<span id="selected-food-unit">g</span>)</label>
+                                <input type="number" id="selected-food-qty" value="100" min="0.1" step="any" oninput="calculatePreview()" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm">
+                            </div>
+                            <div class="text-xs grid grid-cols-4 gap-1 text-center bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
+                                <div><span class="block font-bold text-brand-600" id="prev-kcal">0</span>Kcal</div>
+                                <div><span class="block font-bold text-blue-600" id="prev-prot">0g</span>P</div>
+                                <div><span class="block font-bold text-amber-600" id="prev-carb">0g</span>C</div>
+                                <div><span class="block font-bold text-purple-600" id="prev-gord">0g</span>G</div>
+                            </div>
+                            <button onclick="addSelectedFoodToMeal()" class="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-bold shadow transition">
+                                Adicionar na Refeição
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: EDITAR PLANO BASE DO USUÁRIO -->
+            <div id="tab-prescribed" class="hidden space-y-6">
+                <div class="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold">Plano Prescrito Base — <span id="prescribed-editor-username" class="text-brand-600">Usuário</span></h2>
+                        <p class="text-xs text-slate-500 mt-1">Edite as porções base e veja as substituições equivalentes cadastradas para cada item.</p>
+                    </div>
+                    <button onclick="resetUserPlanToDefault()" class="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-semibold rounded-xl transition shrink-0">
+                        Restaurar Plano Original
+                    </button>
+                </div>
+                <div id="prescribed-editor-container" class="space-y-4">
+                    <!-- Renderizado via JS -->
+                </div>
+            </div>
+
+            <!-- TAB 3: TABELA TACO & SUPLEMENTOS -->
+            <div id="tab-foods" class="hidden space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div>
+                        <h2 class="text-lg font-bold">Catálogo Completo TACO & Suplementos</h2>
+                        <p class="text-xs text-slate-500">Todos os alimentos da Tabela Brasileira de Composição de Alimentos (TACO / NEPA-UNICAMP) + Suplementos e Itens do Nutricionista</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <select id="master-category-filter" onchange="renderMasterFoodTable()" class="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">
+                            <option value="">Todas as Categorias</option>
+                            <option value="Suplemento">Suplementos</option>
+                            <option value="Carnes, Aves, Peixes e Ovos">Carnes, Aves, Peixes e Ovos</option>
+                            <option value="Cereais, Grãos, Massas e Tubérculos">Cereais, Grãos, Massas e Tubérculos</option>
+                            <option value="Leguminosas e Proteínas Vegetais">Leguminosas e Proteínas Vegetais</option>
+                            <option value="Laticínios e Derivados">Laticínios e Derivados</option>
+                            <option value="Frutas">Frutas</option>
+                            <option value="Hortaliças, Verduras e Legumes">Hortaliças, Verduras e Legumes</option>
+                            <option value="Oleaginosas, Gorduras e Açúcares">Oleaginosas, Gorduras e Açúcares</option>
+                        </select>
+                        <input type="text" id="master-search" oninput="renderMasterFoodTable()" placeholder="Pesquisar na tabela..." class="w-full sm:w-56 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                        <button onclick="openAddFoodModal()" class="px-3 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-bold whitespace-nowrap">+ Novo</button>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase tracking-wider text-slate-500">
+                                    <th class="p-4">Alimento / Suplemento</th>
+                                    <th class="p-4">Categoria</th>
+                                    <th class="p-4">Porção Base</th>
+                                    <th class="p-4">Kcal</th>
+                                    <th class="p-4">Prot</th>
+                                    <th class="p-4">Carb</th>
+                                    <th class="p-4">Gord</th>
+                                    <th class="p-4">Fibra</th>
+                                    <th class="p-4 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="master-food-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                                <!-- Preenchido via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: HISTÓRICO -->
+            <div id="tab-history" class="hidden space-y-6">
+                <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <h2 class="text-lg font-bold">Histórico de Consumo Diário — <span id="history-username" class="text-brand-600">Usuário</span></h2>
+                    <p class="text-xs text-slate-500">Dias anteriores finalizados e salvos para este perfil</p>
+                </div>
+                <div id="history-container" class="space-y-4">
+                    <!-- Preenchido via JS -->
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL: NOVO USUÁRIO -->
+    <div id="user-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold">Cadastrar Novo Usuário</h3>
+                <button onclick="closeNewUserModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form onsubmit="createNewUser(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Nome do Usuário</label>
+                    <input type="text" id="new-user-name" required placeholder="Ex: Filho, Filha, Convidado..." class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Objetivo / Descrição do Plano</label>
+                    <input type="text" id="new-user-desc" required placeholder="Ex: Manutenção, Emagrecimento, Hipertrofia" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Meta Calorias (kcal)</label>
+                        <input type="number" id="new-user-kcal" value="2000" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Meta Proteínas (g)</label>
+                        <input type="number" id="new-user-prot" value="140" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Meta Carboidratos (g)</label>
+                        <input type="number" id="new-user-carb" value="220" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Meta Gorduras (g)</label>
+                        <input type="number" id="new-user-gord" value="60" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Copiar estrutura base de refeições de:</label>
+                    <select id="new-user-template" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">
+                        <option value="andreza">Andreza (Prescrição Guilherme Echamende)</option>
+                        <option value="jean">Jean (Recomposição / Hipertrofia)</option>
+                        <option value="empty">Plano em Branco</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeNewUserModal()" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-medium">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold">Criar Perfil</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CADASTRAR / EDITAR ALIMENTO -->
+    <div id="food-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 id="modal-title" class="text-lg font-bold">Cadastrar Novo Alimento</h3>
+                <button onclick="closeFoodModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="food-form" onsubmit="saveFoodForm(event)" class="space-y-3">
+                <input type="hidden" id="edit-food-id">
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Nome do Alimento / Suplemento</label>
+                    <input type="text" id="form-name" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Categoria</label>
+                        <select id="form-category" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">
+                            <option value="Carnes, Aves, Peixes e Ovos">Carnes, Aves, Peixes e Ovos</option>
+                            <option value="Cereais, Grãos, Massas e Tubérculos">Cereais, Grãos, Massas e Tubérculos</option>
+                            <option value="Leguminosas e Proteínas Vegetais">Leguminosas e Proteínas Vegetais</option>
+                            <option value="Laticínios e Derivados">Laticínios e Derivados</option>
+                            <option value="Frutas">Frutas</option>
+                            <option value="Hortaliças, Verduras e Legumes">Hortaliças, Verduras e Legumes</option>
+                            <option value="Oleaginosas, Gorduras e Açúcares">Oleaginosas, Gorduras e Açúcares</option>
+                            <option value="Suplemento">Suplemento</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Unidade Padrão</label>
+                        <select id="form-unit" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm">
+                            <option value="g">Gramas (g)</option>
+                            <option value="ml">Mililitros (ml)</option>
+                            <option value="scoop">Scoop / Dose</option>
+                            <option value="un">Unidade (un)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Quantidade Base (ex: 100g, 30g para 1 scoop)</label>
+                    <input type="number" id="form-base-qty" value="100" min="0.1" step="any" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Calorias (kcal)</label>
+                        <input type="number" id="form-kcal" step="any" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Proteínas (g)</label>
+                        <input type="number" id="form-prot" step="any" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Carboidratos (g)</label>
+                        <input type="number" id="form-carb" step="any" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Gorduras (g)</label>
+                        <input type="number" id="form-gord" step="any" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Fibras (g)</label>
+                        <input type="number" id="form-fibra" step="any" value="0" required class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeFoodModal()" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-medium">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold">Salvar Alimento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: METAS -->
+    <div id="goals-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-sm w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold">Metas Diárias — <span id="goals-modal-user" class="text-brand-600">Usuário</span></h3>
+                <button onclick="closeGoalsModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Meta de Calorias (kcal)</label>
+                    <input type="number" id="goal-kcal-input" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Meta de Proteínas (g)</label>
+                    <input type="number" id="goal-prot-input" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Meta de Carboidratos (g)</label>
+                    <input type="number" id="goal-carb-input" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-500 mb-1">Meta de Gorduras (g)</label>
+                    <input type="number" id="goal-gord-input" class="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeGoalsModal()" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-medium">Cancelar</button>
+                <button onclick="saveGoals()" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold">Salvar Metas</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // =========================================================================
+        // 0. FIREBASE CONFIG EMBUTIDO DIRETO NO CÓDIGO (SEM BOTÃO/MODAL NA TELA)
+        // =========================================================================
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyCVAwFCg0pQtWZJvKklNtz4RRWDCKFiSuA",
+            authDomain: "piloto3bpm.firebaseapp.com",
+            databaseURL: "https://piloto3bpm-default-rtdb.firebaseio.com",
+            projectId: "piloto3bpm",
+            storageBucket: "piloto3bpm.firebasestorage.app",
+            messagingSenderId: "237371471010",
+            appId: "1:237371471010:web:bb0042d96507a6602193fb",
+            measurementId: "G-8DQ3RZCRWG"
+        };
+
+        const FIRESTORE_COLLECTION = "nutritrack_workspaces";
+        const FIRESTORE_DOC_ID = "nutritrack-casal";
+
+        let fbDb = null;
+        let fbUnsubscribe = null;
+        let isApplyingRemoteSnapshot = false;
+
+        function initFirestoreListener() {
+            if (typeof firebase === 'undefined') return;
+            try {
+                const appName = 'nutritrack_app';
+                const existingApp = firebase.apps.find(a => a.name === appName);
+                const fbApp = existingApp || firebase.initializeApp(firebaseConfig, appName);
+                fbDb = fbApp.firestore();
+
+                if (fbUnsubscribe) {
+                    fbUnsubscribe();
+                    fbUnsubscribe = null;
+                }
+
+                const docRef = fbDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC_ID);
+                fbUnsubscribe = docRef.onSnapshot(
+                    (docSnap) => {
+                        if (!docSnap.exists) {
+                            pushStateToFirestore();
+                            return;
+                        }
+
+                        const remote = docSnap.data();
+                        if (!remote) return;
+
+                        isApplyingRemoteSnapshot = true;
+                        if (Array.isArray(remote.foods) && remote.foods.length > 0) {
+                            foods = remote.foods;
+                            localStorage.setItem('nutritrack_v3_foods', JSON.stringify(foods));
+                        }
+                        if (remote.users && typeof remote.users === 'object' && Object.keys(remote.users).length > 0) {
+                            users = remote.users;
+                            localStorage.setItem('nutritrack_v3_users', JSON.stringify(users));
+                        }
+                        if (remote.activeUserId && users[remote.activeUserId]) {
+                            activeUserId = remote.activeUserId;
+                            localStorage.setItem('nutritrack_v3_active_user', activeUserId);
+                        }
+                        isApplyingRemoteSnapshot = false;
+
+                        document.getElementById('total-foods-badge').innerText = foods.length;
+                        renderUserSelector();
+                        renderDashboard();
+                        renderPrescribedEditor();
+                        renderMasterFoodTable();
+                        renderHistory();
+                        filterFoodList();
+                    },
+                    (err) => {
+                        console.error('Firestore listener error:', err);
+                    }
+                );
+            } catch (e) {
+                console.error('Firestore init error:', e);
+            }
+        }
+
+        function pushStateToFirestore() {
+            if (!fbDb || isApplyingRemoteSnapshot) return;
+            fbDb.collection(FIRESTORE_COLLECTION)
+                .doc(FIRESTORE_DOC_ID)
+                .set(
+                    {
+                        foods,
+                        users,
+                        activeUserId,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    },
+                    { merge: true }
+                )
+                .catch((err) => {
+                    console.error('Firestore write error:', err);
+                });
+        }
+
+        // =========================================================================
+        // 1. CATÁLOGO COMPLETO: SUPLEMENTOS + TABELA TACO + SUBSTITUTOS DA ANDREZA
+        // =========================================================================
+        const defaultFoods = [
+            // SUPLEMENTOS PRÉ-CADASTRADOS
+            { id: 'sup_1', name: 'Blend Protein XPRO (Porção 30g)', category: 'Suplemento', unit: 'g', baseQty: 30, kcal: 117, prot: 25.0, carb: 2.0, gord: 1.0, fibra: 2.0 },
+            { id: 'sup_2', name: 'Whey Protein Isolado / Isofort Beauty', category: 'Suplemento', unit: 'g', baseQty: 30, kcal: 120, prot: 25.0, carb: 1.0, gord: 0.5, fibra: 0.0 },
+            { id: 'sup_3', name: 'Albumina Naturovos (Porção 28g)', category: 'Suplemento', unit: 'g', baseQty: 28, kcal: 102, prot: 22.0, carb: 1.2, gord: 0.0, fibra: 0.0 },
+            { id: 'sup_4', name: 'Creatina Monohidratada Pura', category: 'Suplemento', unit: 'g', baseQty: 3, kcal: 0, prot: 0.0, carb: 0.0, gord: 0.0, fibra: 0.0 },
+
+            // CARNES, AVES, PEIXES E OVOS (TACO 100g)
+            { id: 'taco_c1', name: 'Peito de frango sem pele grelhado', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 159, prot: 32.0, carb: 0.0, gord: 2.5, fibra: 0.0 },
+            { id: 'taco_c2', name: 'Peito de frango assado / cozido / desfiado', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 163, prot: 31.5, carb: 0.0, gord: 3.2, fibra: 0.0 },
+            { id: 'taco_c3', name: 'Frango, coxa, sem pele, cozida', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 167, prot: 26.9, carb: 0.0, gord: 5.8, fibra: 0.0 },
+            { id: 'taco_c4', name: 'Carne bovina magra (patinho, alcatra, filé mignon, coxão mole)', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 219, prot: 35.9, carb: 0.0, gord: 7.3, fibra: 0.0 },
+            { id: 'taco_c5', name: 'Carne moída refogada / acém cozido', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 212, prot: 26.7, carb: 0.0, gord: 10.9, fibra: 0.0 },
+            { id: 'taco_c6', name: 'Carne bovina, coxão mole, sem gordura, cozido', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 219, prot: 32.4, carb: 0.0, gord: 8.9, fibra: 0.0 },
+            { id: 'taco_c7', name: 'Carne bovina, contra-filé, sem gordura, grelhado', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 194, prot: 35.9, carb: 0.0, gord: 4.5, fibra: 0.0 },
+            { id: 'taco_c8', name: 'Carne de porco cozida / lombo assado', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 210, prot: 35.7, carb: 0.0, gord: 6.4, fibra: 0.0 },
+            { id: 'taco_c9', name: 'Tilápia cozida / filé grelhado', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 128, prot: 26.2, carb: 0.0, gord: 2.7, fibra: 0.0 },
+            { id: 'taco_c10', name: 'Atum, conserva em óleo, drenado', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 166, prot: 26.2, carb: 0.0, gord: 6.0, fibra: 0.0 },
+            { id: 'taco_c11', name: 'Salmão, sem pele, grelhado', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 229, prot: 23.9, carb: 0.0, gord: 14.0, fibra: 0.0 },
+            { id: 'taco_c12', name: 'Ovo de galinha inteiro', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 146, prot: 13.3, carb: 0.6, gord: 9.5, fibra: 0.0 },
+            { id: 'taco_c13', name: 'Ovo de galinha, clara, cozida', category: 'Carnes, Aves, Peixes e Ovos', unit: 'g', baseQty: 100, kcal: 59, prot: 13.4, carb: 0.0, gord: 0.1, fibra: 0.0 },
+
+            // CEREAIS, GRÃOS, MASSAS E TUBÉRCULOS (TACO 100g)
+            { id: 'taco_g1', name: 'Arroz branco cozido', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 128, prot: 2.5, carb: 28.1, gord: 0.2, fibra: 1.6 },
+            { id: 'taco_g2', name: 'Arroz integral cozido', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 124, prot: 2.6, carb: 25.8, gord: 1.0, fibra: 2.7 },
+            { id: 'taco_g3', name: 'Aveia em flocos', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 394, prot: 13.9, carb: 66.6, gord: 8.5, fibra: 9.1 },
+            { id: 'taco_g4', name: 'Macarrão cozido', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 102, prot: 3.4, carb: 19.9, gord: 0.5, fibra: 1.5 },
+            { id: 'taco_g5', name: 'Pão francês (pão de sal)', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 300, prot: 8.0, carb: 58.6, gord: 3.1, fibra: 2.3 },
+            { id: 'taco_g6', name: 'Pão de forma integral', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 253, prot: 9.4, carb: 49.9, gord: 3.7, fibra: 6.9 },
+            { id: 'taco_g13', name: 'Pão de forma tradicional', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 269, prot: 8.3, carb: 50.6, gord: 3.5, fibra: 2.5 },
+            { id: 'taco_g14', name: 'Torrada tradicional', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 377, prot: 10.5, carb: 74.6, gord: 3.3, fibra: 3.4 },
+            { id: 'taco_g7', name: 'Batata inglesa cozida', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 52, prot: 1.2, carb: 11.9, gord: 0.0, fibra: 1.3 },
+            { id: 'taco_g15', name: 'Batata inglesa assada', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 93, prot: 2.1, carb: 21.1, gord: 0.1, fibra: 2.2 },
+            { id: 'taco_g8', name: 'Batata doce cozida', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 77, prot: 0.6, carb: 18.4, gord: 0.1, fibra: 2.2 },
+            { id: 'taco_g9', name: 'Mandioca (aipim) cozida', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 125, prot: 0.6, carb: 30.1, gord: 0.3, fibra: 1.6 },
+            { id: 'taco_g10', name: 'Milho verde enlatado drenado', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 98, prot: 3.2, carb: 17.1, gord: 2.4, fibra: 4.6 },
+            { id: 'taco_g11', name: 'Cuscuz de milho cozido com sal', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 113, prot: 2.2, carb: 25.3, gord: 0.7, fibra: 2.1 },
+            { id: 'taco_g12', name: 'Tapioca (Massa Pronta)', category: 'Cereais, Grãos, Massas e Tubérculos', unit: 'g', baseQty: 100, kcal: 242, prot: 0.1, carb: 59.8, gord: 0.0, fibra: 0.2 },
+
+            // LEGUMINOSAS E PROTEÍNAS VEGETAIS (TACO 100g)
+            { id: 'taco_l1', name: 'Feijão carioca cozido', category: 'Leguminosas e Proteínas Vegetais', unit: 'g', baseQty: 100, kcal: 76, prot: 4.8, carb: 13.6, gord: 0.5, fibra: 8.5 },
+            { id: 'taco_l2', name: 'Feijão preto cozido', category: 'Leguminosas e Proteínas Vegetais', unit: 'g', baseQty: 100, kcal: 77, prot: 4.5, carb: 14.0, gord: 0.5, fibra: 8.4 },
+            { id: 'taco_l3', name: 'Lentilha cozida', category: 'Leguminosas e Proteínas Vegetais', unit: 'g', baseQty: 100, kcal: 93, prot: 6.3, carb: 16.3, gord: 0.5, fibra: 7.9 },
+            { id: 'taco_l4', name: 'Grão de bico cozido', category: 'Leguminosas e Proteínas Vegetais', unit: 'g', baseQty: 100, kcal: 164, prot: 8.9, carb: 27.4, gord: 2.6, fibra: 7.6 },
+            { id: 'taco_l6', name: 'Ervilha cozida / enlatada', category: 'Leguminosas e Proteínas Vegetais', unit: 'g', baseQty: 100, kcal: 74, prot: 4.6, carb: 13.4, gord: 0.4, fibra: 5.1 },
+            { id: 'taco_l5', name: 'Proteína texturizada de soja (PTS)', category: 'Leguminosas e Proteínas Vegetais', unit: 'g', baseQty: 100, kcal: 342, prot: 52.0, carb: 30.5, gord: 1.2, fibra: 16.0 },
+
+            // LATICÍNIOS E DERIVADOS (TACO 100g)
+            { id: 'taco_d1', name: 'Leite de vaca integral líquido', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 57, prot: 3.0, carb: 4.9, gord: 3.0, fibra: 0.0 },
+            { id: 'taco_d2', name: 'Leite de vaca desnatado UHT', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 35, prot: 3.4, carb: 4.9, gord: 0.2, fibra: 0.0 },
+            { id: 'taco_d3', name: 'Leite em pó integral', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 497, prot: 25.4, carb: 39.2, gord: 26.9, fibra: 0.0 },
+            { id: 'taco_d4', name: 'Leite em pó desnatado', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 362, prot: 34.7, carb: 53.0, gord: 0.9, fibra: 0.0 },
+            { id: 'taco_d5', name: 'Iogurte natural integral', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 51, prot: 4.1, carb: 1.9, gord: 3.0, fibra: 0.0 },
+            { id: 'taco_d6', name: 'Iogurte natural desnatado', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 41, prot: 3.8, carb: 5.8, gord: 0.3, fibra: 0.0 },
+            { id: 'taco_d7', name: 'Queijo muçarela', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 330, prot: 22.6, carb: 3.0, gord: 25.2, fibra: 0.0 },
+            { id: 'taco_d8', name: 'Queijo minas frescal', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 264, prot: 17.4, carb: 3.2, gord: 20.2, fibra: 0.0 },
+            { id: 'taco_d11', name: 'Ricota fresca', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 140, prot: 12.6, carb: 3.8, gord: 8.1, fibra: 0.0 },
+            { id: 'taco_d12', name: 'Queijo cottage', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 98, prot: 11.1, carb: 3.4, gord: 4.3, fibra: 0.0 },
+            { id: 'taco_d9', name: 'Queijo prato', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 360, prot: 22.7, carb: 1.9, gord: 29.1, fibra: 0.0 },
+            { id: 'taco_d10', name: 'Requeijão light / cremoso', category: 'Laticínios e Derivados', unit: 'g', baseQty: 100, kcal: 180, prot: 10.5, carb: 3.0, gord: 14.0, fibra: 0.0 },
+
+            // FRUTAS (TACO 100g)
+            { id: 'taco_f1', name: 'Banana prata', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 98, prot: 1.3, carb: 26.0, gord: 0.1, fibra: 2.0 },
+            { id: 'taco_f2', name: 'Banana nanica', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 92, prot: 1.4, carb: 23.8, gord: 0.1, fibra: 1.9 },
+            { id: 'taco_f3', name: 'Maçã Fuji', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 56, prot: 0.3, carb: 15.2, gord: 0.0, fibra: 1.3 },
+            { id: 'taco_f4', name: 'Mamão Formosa', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 45, prot: 0.8, carb: 11.6, gord: 0.1, fibra: 1.8 },
+            { id: 'taco_f5', name: 'Mamão Papaia', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 40, prot: 0.5, carb: 10.4, gord: 0.1, fibra: 1.0 },
+            { id: 'taco_f6', name: 'Laranja pera', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 37, prot: 1.0, carb: 8.9, gord: 0.1, fibra: 0.8 },
+            { id: 'taco_f7', name: 'Tangerina Poncã', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 38, prot: 0.8, carb: 9.6, gord: 0.1, fibra: 0.9 },
+            { id: 'taco_f8', name: 'Abacate', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 96, prot: 1.2, carb: 6.0, gord: 8.4, fibra: 6.3 },
+            { id: 'taco_f9', name: 'Morango', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 30, prot: 0.9, carb: 6.8, gord: 0.3, fibra: 1.7 },
+            { id: 'taco_f10', name: 'Melancia', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 33, prot: 0.9, carb: 8.1, gord: 0.0, fibra: 0.1 },
+            { id: 'taco_f11', name: 'Manga Palmer', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 72, prot: 0.4, carb: 19.4, gord: 0.2, fibra: 1.6 },
+            { id: 'taco_f12', name: 'Abacaxi', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 48, prot: 0.9, carb: 12.3, gord: 0.1, fibra: 1.0 },
+            { id: 'taco_f13', name: 'Uva Rubi', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 49, prot: 0.6, carb: 12.7, gord: 0.2, fibra: 0.9 },
+            { id: 'taco_f14', name: 'Goiaba vermelha', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 54, prot: 1.1, carb: 13.0, gord: 0.4, fibra: 6.2 },
+            { id: 'taco_f15', name: 'Melão', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 29, prot: 0.7, carb: 7.5, gord: 0.0, fibra: 0.3 },
+            { id: 'taco_f16', name: 'Pera', category: 'Frutas', unit: 'g', baseQty: 100, kcal: 53, prot: 0.6, carb: 14.0, gord: 0.1, fibra: 3.0 },
+
+            // HORTALIÇAS, VERDURAS E LEGUMES (TACO 100g)
+            { id: 'taco_h1', name: 'Alface crespa / americana', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 11, prot: 1.3, carb: 1.7, gord: 0.2, fibra: 1.8 },
+            { id: 'taco_h2', name: 'Tomate cru', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 15, prot: 1.1, carb: 3.1, gord: 0.2, fibra: 1.2 },
+            { id: 'taco_h3', name: 'Brócolis cozido', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 25, prot: 2.1, carb: 4.4, gord: 0.5, fibra: 3.4 },
+            { id: 'taco_h4', name: 'Cenoura cozida', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 30, prot: 0.8, carb: 6.7, gord: 0.2, fibra: 2.6 },
+            { id: 'taco_h5', name: 'Cenoura crua', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 34, prot: 1.3, carb: 7.7, gord: 0.2, fibra: 3.2 },
+            { id: 'taco_h6', name: 'Abóbora cabotian cozida', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 48, prot: 1.4, carb: 10.8, gord: 0.7, fibra: 2.5 },
+            { id: 'taco_h7', name: 'Abobrinha italiana cozida', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 15, prot: 1.1, carb: 3.0, gord: 0.2, fibra: 1.6 },
+            { id: 'taco_h8', name: 'Chuchu cozido', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 19, prot: 0.4, carb: 4.8, gord: 0.0, fibra: 1.3 },
+            { id: 'taco_h9', name: 'Beterraba cozida', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 32, prot: 1.3, carb: 7.2, gord: 0.1, fibra: 1.9 },
+            { id: 'taco_h10', name: 'Couve manteiga refogada', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 90, prot: 1.7, carb: 8.7, gord: 6.6, fibra: 5.7 },
+            { id: 'taco_h11', name: 'Pepino cru', category: 'Hortaliças, Verduras e Legumes', unit: 'g', baseQty: 100, kcal: 10, prot: 0.9, carb: 2.0, gord: 0.0, fibra: 1.1 },
+
+            // OLEAGINOSAS, GORDURAS E AÇÚCARES (TACO 100g)
+            { id: 'taco_o1', name: 'Azeite de oliva extra virgem', category: 'Oleaginosas, Gorduras e Açúcares', unit: 'g', baseQty: 100, kcal: 884, prot: 0.0, carb: 0.0, gord: 100.0, fibra: 0.0 },
+            { id: 'taco_o2', name: 'Manteiga com sal', category: 'Oleaginosas, Gorduras e Açúcares', unit: 'g', baseQty: 100, kcal: 726, prot: 0.4, carb: 0.1, gord: 82.4, fibra: 0.0 },
+            { id: 'taco_o3', name: 'Pasta de amendoim integral (Dr. Peanut)', category: 'Oleaginosas, Gorduras e Açúcares', unit: 'g', baseQty: 100, kcal: 544, prot: 27.2, carb: 20.3, gord: 43.9, fibra: 8.0 },
+            { id: 'taco_o4', name: 'Castanha-do-Brasil (Pará)', category: 'Oleaginosas, Gorduras e Açúcares', unit: 'g', baseQty: 100, kcal: 643, prot: 14.5, carb: 15.1, gord: 63.5, fibra: 7.9 },
+            { id: 'taco_o5', name: 'Castanha-de-caju torrada', category: 'Oleaginosas, Gorduras e Açúcares', unit: 'g', baseQty: 100, kcal: 570, prot: 18.5, carb: 29.1, gord: 46.3, fibra: 3.7 },
+            { id: 'taco_o6', name: 'Mel de abelha', category: 'Oleaginosas, Gorduras e Açúcares', unit: 'g', baseQty: 100, kcal: 309, prot: 0.0, carb: 84.0, gord: 0.0, fibra: 0.0 },
+            { id: 'taco_o7', name: 'Açúcar cristal', category: 'Oleaginosas, Gorduras e Açúcares', unit: 'g', baseQty: 100, kcal: 387, prot: 0.3, carb: 99.6, gord: 0.0, fibra: 0.0 },
+            { id: 'taco_o8', name: 'Canela em pó', category: 'Oleaginosas, Gorduras e Açúcares', unit: 'g', baseQty: 100, kcal: 247, prot: 4.0, carb: 80.6, gord: 1.2, fibra: 53.1 }
+        ];
+
+        // 2. PLANOS PRÉ-CADASTRADOS COM TODAS AS SUBSTITUIÇÕES DO NUTRICIONISTA
+        const MEAL_ORDER = [
+            { id: 'Café da Manhã', time: '06:00', title: 'Café da Manhã' },
+            { id: 'Lanche da Manhã', time: '10:00', title: 'Lanche da Manhã' },
+            { id: 'Almoço', time: '12:00', title: 'Almoço' },
+            { id: 'Lanche da Tarde', time: '16:00', title: 'Lanche da Tarde' },
+            { id: 'Jantar', time: '20:00', title: 'Jantar' }
+        ];
+
+        function getDefaultUserPlans() {
+            return {
+                'andreza': {
+                    id: 'andreza',
+                    name: 'Andreza',
+                    description: 'Prescrição Guilherme Echamende (1.459 kcal)',
+                    goals: { kcal: 1459, prot: 128, carb: 149, gord: 43 },
+                    prescribedPlan: {
+                        'Café da Manhã': [
+                            {
+                                foodId: 'taco_g5', qty: 50, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_g6', qty: 50 },
+                                    { foodId: 'taco_g12', qty: 70 },
+                                    { foodId: 'taco_g11', qty: 140 },
+                                    { foodId: 'taco_g13', qty: 50 },
+                                    { foodId: 'taco_g14', qty: 40 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_c12', qty: 50, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_c2', qty: 50 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_d7', qty: 20, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_d8', qty: 30 },
+                                    { foodId: 'taco_d11', qty: 40 },
+                                    { foodId: 'taco_d12', qty: 25 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_f4', qty: 80, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_f3', qty: 80 },
+                                    { foodId: 'taco_f11', qty: 60 },
+                                    { foodId: 'taco_f12', qty: 100 },
+                                    { foodId: 'taco_f14', qty: 100 },
+                                    { foodId: 'taco_f15', qty: 120 },
+                                    { foodId: 'taco_f13', qty: 100 },
+                                    { foodId: 'taco_f16', qty: 110 }
+                                ]
+                            }
+                        ],
+                        'Lanche da Manhã': [
+                            {
+                                foodId: 'sup_2', qty: 25, fixed: false,
+                                substitutes: [
+                                    { foodId: 'sup_1', qty: 25 },
+                                    { foodId: 'sup_3', qty: 28 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_g3', qty: 4, fixed: false,
+                                substitutes: []
+                            },
+                            {
+                                foodId: 'taco_f8', qty: 30, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_f3', qty: 48 },
+                                    { foodId: 'taco_f11', qty: 36 },
+                                    { foodId: 'taco_f12', qty: 60 },
+                                    { foodId: 'taco_f14', qty: 60 },
+                                    { foodId: 'taco_f15', qty: 72 },
+                                    { foodId: 'taco_f13', qty: 60 },
+                                    { foodId: 'taco_f16', qty: 66 }
+                                ]
+                            }
+                        ],
+                        'Almoço': [
+                            {
+                                foodId: 'taco_g1', qty: 80, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_g4', qty: 80 },
+                                    { foodId: 'taco_g15', qty: 120 },
+                                    { foodId: 'taco_g7', qty: 200 },
+                                    { foodId: 'taco_g9', qty: 90 },
+                                    { foodId: 'taco_g2', qty: 100 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_l1', qty: 50, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_l2', qty: 75 },
+                                    { foodId: 'taco_l3', qty: 50 },
+                                    { foodId: 'taco_l4', qty: 40 },
+                                    { foodId: 'taco_l6', qty: 55 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_c2', qty: 100, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_c1', qty: 135 },
+                                    { foodId: 'taco_c9', qty: 180 },
+                                    { foodId: 'taco_c8', qty: 110 },
+                                    { foodId: 'taco_c4', qty: 100 },
+                                    { foodId: 'taco_c5', qty: 70 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_h3', qty: 80, fixed: true,
+                                substitutes: [
+                                    { foodId: 'taco_h4', qty: 100 },
+                                    { foodId: 'taco_h9', qty: 80 }
+                                ]
+                            }
+                        ],
+                        'Lanche da Tarde': [
+                            {
+                                foodId: 'taco_f1', qty: 65, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_f3', qty: 80 },
+                                    { foodId: 'taco_f4', qty: 90 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_c12', qty: 50, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_c2', qty: 50 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_g12', qty: 20, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_g6', qty: 50 },
+                                    { foodId: 'taco_g11', qty: 130 },
+                                    { foodId: 'taco_g13', qty: 50 },
+                                    { foodId: 'taco_g14', qty: 40 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_g3', qty: 10, fixed: false,
+                                substitutes: []
+                            },
+                            {
+                                foodId: 'taco_o3', qty: 5, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_d10', qty: 20 }
+                                ]
+                            }
+                        ],
+                        'Jantar': [
+                            {
+                                foodId: 'taco_g1', qty: 60, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_g4', qty: 60 },
+                                    { foodId: 'taco_g15', qty: 90 },
+                                    { foodId: 'taco_g7', qty: 150 },
+                                    { foodId: 'taco_g9', qty: 67.5 },
+                                    { foodId: 'taco_g2', qty: 75 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_l1', qty: 40, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_l2', qty: 60 },
+                                    { foodId: 'taco_l3', qty: 40 },
+                                    { foodId: 'taco_l4', qty: 32 },
+                                    { foodId: 'taco_l6', qty: 45 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_c2', qty: 100, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_c1', qty: 135 },
+                                    { foodId: 'taco_c9', qty: 180 },
+                                    { foodId: 'taco_c8', qty: 110 },
+                                    { foodId: 'taco_c4', qty: 100 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_h3', qty: 80, fixed: true,
+                                substitutes: [
+                                    { foodId: 'taco_h4', qty: 100 },
+                                    { foodId: 'taco_h9', qty: 80 }
+                                ]
+                            }
+                        ]
+                    },
+                    dailyLog: createEmptyDailyLog(),
+                    history: []
+                },
+                'jean': {
+                    id: 'jean',
+                    name: 'Jean',
+                    description: 'Recomposição / Hipertrofia (2.460 kcal)',
+                    goals: { kcal: 2460, prot: 204, carb: 264, gord: 65 },
+                    prescribedPlan: {
+                        'Café da Manhã': [
+                            {
+                                foodId: 'taco_g5', qty: 75, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_g6', qty: 75 },
+                                    { foodId: 'taco_g12', qty: 105 },
+                                    { foodId: 'taco_g11', qty: 210 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_c12', qty: 150, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_c2', qty: 75 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_d7', qty: 20, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_d8', qty: 30 },
+                                    { foodId: 'taco_d11', qty: 40 },
+                                    { foodId: 'taco_d12', qty: 25 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_f4', qty: 120, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_f3', qty: 120 },
+                                    { foodId: 'taco_f11', qty: 90 },
+                                    { foodId: 'taco_f12', qty: 150 },
+                                    { foodId: 'taco_f15', qty: 180 }
+                                ]
+                            }
+                        ],
+                        'Lanche da Manhã': [
+                            {
+                                foodId: 'sup_2', qty: 37, fixed: false,
+                                substitutes: [
+                                    { foodId: 'sup_1', qty: 37 },
+                                    { foodId: 'sup_3', qty: 40 }
+                                ]
+                            },
+                            { foodId: 'taco_g3', qty: 30, fixed: false, substitutes: [] },
+                            {
+                                foodId: 'taco_f8', qty: 40, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_f3', qty: 65 },
+                                    { foodId: 'taco_f11', qty: 50 },
+                                    { foodId: 'taco_f12', qty: 80 },
+                                    { foodId: 'taco_f1', qty: 65 }
+                                ]
+                            }
+                        ],
+                        'Almoço': [
+                            {
+                                foodId: 'taco_g1', qty: 180, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_g4', qty: 180 },
+                                    { foodId: 'taco_g15', qty: 270 },
+                                    { foodId: 'taco_g9', qty: 200 },
+                                    { foodId: 'taco_g2', qty: 200 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_l1', qty: 80, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_l2', qty: 120 },
+                                    { foodId: 'taco_l3', qty: 80 },
+                                    { foodId: 'taco_l4', qty: 65 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_c2', qty: 160, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_c1', qty: 215 },
+                                    { foodId: 'taco_c4', qty: 160 },
+                                    { foodId: 'taco_c9', qty: 280 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_h3', qty: 100, fixed: true,
+                                substitutes: [
+                                    { foodId: 'taco_h4', qty: 120 },
+                                    { foodId: 'taco_h9', qty: 100 }
+                                ]
+                            }
+                        ],
+                        'Lanche da Tarde': [
+                            { foodId: 'taco_f1', qty: 65, fixed: false, substitutes: [] },
+                            { foodId: 'taco_c12', qty: 100, fixed: false, substitutes: [{ foodId: 'taco_c2', qty: 100 }] },
+                            {
+                                foodId: 'taco_g12', qty: 45, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_g6', qty: 75 },
+                                    { foodId: 'taco_g11', qty: 180 }
+                                ]
+                            },
+                            { foodId: 'taco_g3', qty: 25, fixed: false, substitutes: [] },
+                            { foodId: 'taco_o3', qty: 10, fixed: false, substitutes: [{ foodId: 'taco_d10', qty: 20 }] }
+                        ],
+                        'Jantar': [
+                            {
+                                foodId: 'taco_g1', qty: 150, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_g4', qty: 150 },
+                                    { foodId: 'taco_g15', qty: 225 },
+                                    { foodId: 'taco_g9', qty: 170 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_l1', qty: 70, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_l2', qty: 105 },
+                                    { foodId: 'taco_l3', qty: 70 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_c2', qty: 160, fixed: false,
+                                substitutes: [
+                                    { foodId: 'taco_c1', qty: 215 },
+                                    { foodId: 'taco_c4', qty: 160 },
+                                    { foodId: 'taco_c9', qty: 280 }
+                                ]
+                            },
+                            {
+                                foodId: 'taco_h3', qty: 100, fixed: true,
+                                substitutes: [
+                                    { foodId: 'taco_h4', qty: 120 },
+                                    { foodId: 'taco_h9', qty: 100 }
+                                ]
+                            }
+                        ]
+                    },
+                    dailyLog: createEmptyDailyLog(),
+                    history: []
+                }
+            };
+        }
+
+        function createEmptyDailyLog() {
+            return {
+                date: new Date().toLocaleDateString('pt-BR'),
+                meals: {
+                    'Café da Manhã': [],
+                    'Lanche da Manhã': [],
+                    'Almoço': [],
+                    'Lanche da Tarde': [],
+                    'Jantar': []
+                }
+            };
+        }
+
+        // 3. ESTADO GLOBAL & PERSISTÊNCIA HÍBRIDA (FIRESTORE + LOCALSTORAGE CACHE)
+        let storedFoods = JSON.parse(localStorage.getItem('nutritrack_v3_foods'));
+        let foods = [];
+        if (storedFoods && Array.isArray(storedFoods)) {
+            foods = [...storedFoods];
+            defaultFoods.forEach(defItem => {
+                if (!foods.some(f => f.id === defItem.id)) foods.push(defItem);
+            });
+        } else {
+            foods = [...defaultFoods];
+        }
+
+        let users = JSON.parse(localStorage.getItem('nutritrack_v3_users')) || getDefaultUserPlans();
+        const freshDefaults = getDefaultUserPlans();
+
+        Object.keys(users).forEach(uKey => {
+            const u = users[uKey];
+            if (u.prescribedPlan) {
+                Object.keys(u.prescribedPlan).forEach(mealKey => {
+                    u.prescribedPlan[mealKey].forEach((item, idx) => {
+                        if (item.fixed === undefined) item.fixed = (item.role === 'veg');
+                        if (!item.substitutes) {
+                            const defMatch = freshDefaults[uKey]?.prescribedPlan?.[mealKey]?.[idx];
+                            item.substitutes = defMatch ? JSON.parse(JSON.stringify(defMatch.substitutes)) : [];
+                        }
+                    });
+                });
+            }
+        });
+
+        let activeUserId = localStorage.getItem('nutritrack_v3_active_user') || 'andreza';
+        if (!users[activeUserId]) activeUserId = Object.keys(users)[0];
+
+        let pendingDrafts = {};
+        let lastSavedSnapshots = {};
+
+        function saveData() {
+            localStorage.setItem('nutritrack_v3_foods', JSON.stringify(foods));
+            localStorage.setItem('nutritrack_v3_users', JSON.stringify(users));
+            localStorage.setItem('nutritrack_v3_active_user', activeUserId);
+            document.getElementById('total-foods-badge').innerText = foods.length;
+            pushStateToFirestore();
+        }
+
+        function getFoodMacros(foodId, qty) {
+            const f = foods.find(item => item.id === foodId);
+            if (!f) return { name: 'Item removido', unit: 'g', kcal: 0, prot: 0, carb: 0, gord: 0, fibra: 0 };
+            const ratio = qty / f.baseQty;
+            return {
+                name: f.name,
+                unit: f.unit,
+                kcal: f.kcal * ratio,
+                prot: f.prot * ratio,
+                carb: f.carb * ratio,
+                gord: f.gord * ratio,
+                fibra: (f.fibra || 0) * ratio
+            };
+        }
+
+        function getDominantMacro(foodObj) {
+            if (!foodObj) return 'carb';
+            if (foodObj.prot >= foodObj.carb && foodObj.prot >= foodObj.gord && foodObj.prot > 0) return 'prot';
+            if (foodObj.gord > foodObj.carb && foodObj.gord > foodObj.prot) return 'fat';
+            return 'carb';
+        }
+
+        function getOptionsForPrescribedItem(prescribedItem, overrideBaseQty = null) {
+            const baseQtyToUse = overrideBaseQty !== null ? overrideBaseQty : prescribedItem.qty;
+            const opts = [
+                { foodId: prescribedItem.foodId, qty: baseQtyToUse, isOriginal: true }
+            ];
+            if (Array.isArray(prescribedItem.substitutes)) {
+                prescribedItem.substitutes.forEach(sub => {
+                    if (sub.foodId !== prescribedItem.foodId) {
+                        opts.push({ foodId: sub.foodId, qty: sub.qty, isOriginal: false });
+                    }
+                });
+            }
+            return opts;
+        }
+
+        // 4. SOLVER MULTIDIMENSIONAL COM TRAVA ANTI-EXTRAPOLO
+        function solveMultidimensionalCompensation(itemsList, targetDelta, excludedIndices = new Set()) {
+            let workingQty = itemsList.map(it => it.baseQty);
+            let remaining = {
+                carb: targetDelta.carb,
+                prot: targetDelta.prot,
+                gord: targetDelta.gord
+            };
+
+            const candidates = itemsList
+                .map((it, idx) => ({ ...it, idx, foodObj: foods.find(f => f.id === it.foodId) }))
+                .filter(c => !c.fixed && !excludedIndices.has(c.idx) && c.foodObj);
+
+            if (candidates.length === 0) {
+                return { adjustedQuantities: workingQty, uncompensated: remaining };
+            }
+
+            const macroOrder = [
+                { key: 'gord', prop: 'gord' },
+                { key: 'prot', prop: 'prot' },
+                { key: 'carb', prop: 'carb' }
+            ];
+
+            macroOrder.forEach(({ key, prop }) => {
+                const need = remaining[key];
+                if (Math.abs(need) < 1.5) return;
+
+                let specialized = candidates.filter(c => {
+                    const perBase = c.foodObj[prop] / c.foodObj.baseQty;
+                    return perBase > 0.03 && getDominantMacro(c.foodObj) === (key === 'gord' ? 'fat' : key);
+                });
+
+                if (specialized.length === 0) {
+                    specialized = candidates.filter(c => (c.foodObj[prop] / c.foodObj.baseQty) > 0.03);
+                }
+
+                if (specialized.length === 0) return;
+
+                const totalWeight = specialized.reduce((sum, c) => sum + Math.max(1, workingQty[c.idx] * (c.foodObj[prop] / c.foodObj.baseQty)), 0);
+
+                specialized.forEach(c => {
+                    const share = Math.max(1, workingQty[c.idx] * (c.foodObj[prop] / c.foodObj.baseQty)) / totalWeight;
+                    const macroShare = remaining[key] * share;
+                    const macroPerUnit = c.foodObj[prop] / c.foodObj.baseQty;
+
+                    let deltaUnits = macroShare / macroPerUnit;
+
+                    if (deltaUnits > 0) {
+                        ['carb', 'prot', 'gord'].forEach(otherKey => {
+                            if (otherKey === key) return;
+                            const otherProp = otherKey;
+                            const otherPerUnit = c.foodObj[otherProp] / c.foodObj.baseQty;
+                            if (otherPerUnit > 0.02) {
+                                const maxAllowedOtherMacro = Math.max(0, remaining[otherKey] + 3);
+                                const maxUnitsByOther = maxAllowedOtherMacro / otherPerUnit;
+                                if (deltaUnits > maxUnitsByOther) {
+                                    deltaUnits = maxUnitsByOther;
+                                }
+                            }
+                        });
+                    }
+
+                    const newQty = Math.max(0, Math.round(workingQty[c.idx] + deltaUnits));
+                    const actualDeltaUnits = newQty - workingQty[c.idx];
+
+                    if (actualDeltaUnits !== 0) {
+                        workingQty[c.idx] = newQty;
+                        remaining.carb -= actualDeltaUnits * (c.foodObj.carb / c.foodObj.baseQty);
+                        remaining.prot -= actualDeltaUnits * (c.foodObj.prot / c.foodObj.baseQty);
+                        remaining.gord -= actualDeltaUnits * (c.foodObj.gord / c.foodObj.baseQty);
+                    }
+                });
+            });
+
+            return {
+                adjustedQuantities: workingQty,
+                uncompensated: remaining
+            };
+        }
+
+        // 5. MOTOR DE COMPENSAÇÃO EM CASCATA ENTRE REFEIÇÕES
+        function computeAdaptivePlan(user) {
+            let cumulativeDelta = { kcal: 0, prot: 0, carb: 0, gord: 0 };
+            let mealAnalysis = {};
+            let nextPendingMealId = null;
+
+            MEAL_ORDER.forEach(m => {
+                const loggedItems = user.dailyLog.meals[m.id] || [];
+                const prescribedItems = user.prescribedPlan[m.id] || [];
+
+                let presc = { kcal: 0, prot: 0, carb: 0, gord: 0 };
+                prescribedItems.forEach(p => {
+                    const mac = getFoodMacros(p.foodId, p.qty);
+                    presc.kcal += mac.kcal;
+                    presc.prot += mac.prot;
+                    presc.carb += mac.carb;
+                    presc.gord += mac.gord;
+                });
+
+                let actual = { kcal: 0, prot: 0, carb: 0, gord: 0 };
+                loggedItems.forEach(l => {
+                    actual.kcal += l.kcal;
+                    actual.prot += l.prot;
+                    actual.carb += l.carb;
+                    actual.gord += l.gord;
+                });
+
+                const isLogged = loggedItems.length > 0;
+                if (isLogged) {
+                    cumulativeDelta.kcal += (actual.kcal - presc.kcal);
+                    cumulativeDelta.prot += (actual.prot - presc.prot);
+                    cumulativeDelta.carb += (actual.carb - presc.carb);
+                    cumulativeDelta.gord += (actual.gord - presc.gord);
+                } else if (!nextPendingMealId) {
+                    nextPendingMealId = m.id;
+                }
+
+                mealAnalysis[m.id] = {
+                    isLogged,
+                    presc,
+                    actual,
+                    prescribedItems
+                };
+            });
+
+            let adaptedNextMeal = null;
+            if (nextPendingMealId && (Math.abs(cumulativeDelta.carb) >= 2 || Math.abs(cumulativeDelta.prot) >= 2 || Math.abs(cumulativeDelta.gord) >= 2)) {
+                const targetMeal = mealAnalysis[nextPendingMealId];
+                const itemsForSolver = targetMeal.prescribedItems.map(p => ({
+                    foodId: p.foodId,
+                    baseQty: p.qty,
+                    fixed: !!p.fixed
+                }));
+
+                const neededDelta = {
+                    carb: -cumulativeDelta.carb,
+                    prot: -cumulativeDelta.prot,
+                    gord: -cumulativeDelta.gord
+                };
+
+                const { adjustedQuantities, uncompensated } = solveMultidimensionalCompensation(itemsForSolver, neededDelta);
+
+                const adjustedItems = targetMeal.prescribedItems.map((item, idx) => {
+                    const foodObj = foods.find(f => f.id === item.foodId);
+                    const newQty = adjustedQuantities[idx];
+                    const mac = getFoodMacros(item.foodId, newQty);
+
+                    return {
+                        foodId: item.foodId,
+                        name: foodObj ? foodObj.name : 'Alimento',
+                        unit: foodObj ? foodObj.unit : 'g',
+                        originalQty: item.qty,
+                        adjustedQty: newQty,
+                        fixed: !!item.fixed,
+                        substitutes: item.substitutes || [],
+                        ...mac
+                    };
+                });
+
+                adaptedNextMeal = {
+                    mealId: nextPendingMealId,
+                    items: adjustedItems,
+                    deltaApplied: { ...cumulativeDelta },
+                    uncompensatedNext: uncompensated
+                };
+            }
+
+            return {
+                cumulativeDelta,
+                mealAnalysis,
+                nextPendingMealId,
+                adaptedNextMeal
+            };
+        }
+
+        // 6. MOTOR DE SUGESTÃO INTRA-REFEIÇÃO MULTIDIMENSIONAL
+        function computeIntraMealSuggestions(mealId, isAdaptedBlock) {
+            const user = users[activeUserId];
+            const adaptive = computeAdaptivePlan(user);
+            const key = `${mealId}_${isAdaptedBlock ? 'ad' : 'orig'}`;
+            const drafts = pendingDrafts[key] || {};
+
+            if (Object.keys(drafts).length === 0) return { suggestions: {}, overflow: null };
+
+            let itemsList = [];
+            if (isAdaptedBlock && adaptive.adaptedNextMeal && adaptive.adaptedNextMeal.mealId === mealId) {
+                itemsList = adaptive.adaptedNextMeal.items.map(it => ({
+                    foodId: it.foodId,
+                    baseQty: it.adjustedQty,
+                    fixed: !!it.fixed,
+                    unit: it.unit
+                }));
+            } else {
+                itemsList = (user.prescribedPlan[mealId] || []).map(p => {
+                    const f = foods.find(x => x.id === p.foodId);
+                    return {
+                        foodId: p.foodId,
+                        baseQty: p.qty,
+                        fixed: !!p.fixed,
+                        unit: f ? f.unit : 'g'
+                    };
+                });
+            }
+
+            let neededDelta = { carb: 0, prot: 0, gord: 0 };
+            let editedIndices = new Set();
+
+            itemsList.forEach((it, idx) => {
+                const d = drafts[idx];
+                if (d !== undefined) {
+                    editedIndices.add(idx);
+                    const effFoodId = d.foodId !== undefined ? d.foodId : it.foodId;
+                    const effQty = d.qty !== undefined ? d.qty : it.baseQty;
+                    const effFoodObj = foods.find(x => x.id === effFoodId);
+                    it.unit = effFoodObj ? effFoodObj.unit : it.unit;
+
+                    const baseMac = getFoodMacros(it.foodId, it.baseQty);
+                    const effMac = getFoodMacros(effFoodId, effQty);
+                    neededDelta.carb += (baseMac.carb - effMac.carb);
+                    neededDelta.prot += (baseMac.prot - effMac.prot);
+                    neededDelta.gord += (baseMac.gord - effMac.gord);
+                }
+            });
+
+            const workingItems = itemsList.map((it, idx) => {
+                const d = drafts[idx];
+                return {
+                    foodId: d?.foodId !== undefined ? d.foodId : it.foodId,
+                    baseQty: d?.qty !== undefined ? d.qty : it.baseQty,
+                    fixed: it.fixed
+                };
+            });
+
+            const { adjustedQuantities, uncompensated } = solveMultidimensionalCompensation(workingItems, neededDelta, editedIndices);
+
+            let suggestions = {};
+            itemsList.forEach((it, idx) => {
+                if (!editedIndices.has(idx) && !it.fixed) {
+                    const suggestedTotal = adjustedQuantities[idx];
+                    const deltaQty = suggestedTotal - it.baseQty;
+                    if (deltaQty !== 0) {
+                        suggestions[idx] = {
+                            deltaQty,
+                            suggestedTotal,
+                            unit: it.unit
+                        };
+                    }
+                }
+            });
+
+            const hasOverflow = Math.abs(uncompensated.carb) >= 2.5 || Math.abs(uncompensated.prot) >= 2.5 || Math.abs(uncompensated.gord) >= 2;
+
+            return {
+                suggestions,
+                overflow: hasOverflow ? uncompensated : null
+            };
+        }
+
+        function applyIntraMealSuggestion(mealId, itemIdx, suggestedTotal, baseQty, isAdaptedBlock) {
+            const key = `${mealId}_${isAdaptedBlock ? 'ad' : 'orig'}`;
+            if (!pendingDrafts[key]) pendingDrafts[key] = {};
+            const existing = pendingDrafts[key][itemIdx] || {};
+            pendingDrafts[key][itemIdx] = { ...existing, qty: suggestedTotal };
+            renderDashboard();
+        }
+
+        function applyAllIntraMealSuggestions(mealId, isAdaptedBlock) {
+            const key = `${mealId}_${isAdaptedBlock ? 'ad' : 'orig'}`;
+            if (!pendingDrafts[key]) pendingDrafts[key] = {};
+            const { suggestions } = computeIntraMealSuggestions(mealId, isAdaptedBlock);
+            Object.entries(suggestions).forEach(([idx, sug]) => {
+                const i = parseInt(idx);
+                const existing = pendingDrafts[key][i] || {};
+                pendingDrafts[key][i] = { ...existing, qty: sug.suggestedTotal };
+            });
+            renderDashboard();
+        }
+
+        function handleSubstituteDropdownChange(mealId, itemIdx, selectedFoodId, isAdaptedBlock) {
+            const user = users[activeUserId];
+            const adaptive = computeAdaptivePlan(user);
+            const key = `${mealId}_${isAdaptedBlock ? 'ad' : 'orig'}`;
+            if (!pendingDrafts[key]) pendingDrafts[key] = {};
+
+            const prescribedItem = user.prescribedPlan[mealId][itemIdx];
+            const baseDefaultQty = (isAdaptedBlock && adaptive.adaptedNextMeal && adaptive.adaptedNextMeal.mealId === mealId)
+                ? adaptive.adaptedNextMeal.items[itemIdx].adjustedQty
+                : prescribedItem.qty;
+
+            if (selectedFoodId === prescribedItem.foodId) {
+                delete pendingDrafts[key][itemIdx];
+            } else {
+                const subEntry = (prescribedItem.substitutes || []).find(s => s.foodId === selectedFoodId);
+                let subQty = subEntry ? subEntry.qty : baseDefaultQty;
+
+                if (isAdaptedBlock && prescribedItem.qty > 0 && subEntry) {
+                    const cascadeRatio = baseDefaultQty / prescribedItem.qty;
+                    subQty = Math.round(subEntry.qty * cascadeRatio);
+                }
+
+                pendingDrafts[key][itemIdx] = {
+                    foodId: selectedFoodId,
+                    qty: subQty
+                };
+            }
+
+            renderDashboard();
+        }
+
+        function prepareItemSubstitution(mealId, itemIdx, isAdaptedBlock) {
+            const key = `${mealId}_${isAdaptedBlock ? 'ad' : 'orig'}`;
+            if (!pendingDrafts[key]) pendingDrafts[key] = {};
+            const existing = pendingDrafts[key][itemIdx] || {};
+            pendingDrafts[key][itemIdx] = { ...existing, qty: 0 };
+
+            const mealSelect = document.getElementById('select-meal');
+            if (mealSelect) mealSelect.value = mealId;
+
+            renderDashboard();
+
+            const avulsoBox = document.getElementById('avulso-box');
+            const searchInput = document.getElementById('food-search-input');
+            if (avulsoBox && searchInput) {
+                avulsoBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => searchInput.focus(), 350);
+            }
+        }
+
+        function handleDraftQtyLiveInput(mealId, itemIdx, newVal, defaultQty, isAdaptedBlock) {
+            const parsed = parseFloat(newVal);
+            const key = `${mealId}_${isAdaptedBlock ? 'ad' : 'orig'}`;
+            if (!pendingDrafts[key]) pendingDrafts[key] = {};
+
+            if (isNaN(parsed) || parsed < 0) return;
+
+            const existing = pendingDrafts[key][itemIdx] || {};
+            if (parsed === defaultQty && !existing.foodId) {
+                delete pendingDrafts[key][itemIdx];
+            } else {
+                pendingDrafts[key][itemIdx] = { ...existing, qty: parsed };
+            }
+
+            updatePendingMealCardVisuals(mealId, isAdaptedBlock);
+        }
+
+        function handleDraftQtyCommit(mealId, itemIdx, newVal, defaultQty, isAdaptedBlock) {
+            const parsed = parseFloat(newVal);
+            const key = `${mealId}_${isAdaptedBlock ? 'ad' : 'orig'}`;
+            if (!pendingDrafts[key]) pendingDrafts[key] = {};
+
+            if (!isNaN(parsed) && parsed >= 0) {
+                const existing = pendingDrafts[key][itemIdx] || {};
+                if (parsed === defaultQty && !existing.foodId) {
+                    delete pendingDrafts[key][itemIdx];
+                } else {
+                    pendingDrafts[key][itemIdx] = { ...existing, qty: parsed };
+                }
+            }
+            renderDashboard();
+        }
+
+        function updatePendingMealCardVisuals(mealId, isAdaptedBlock) {
+            const user = users[activeUserId];
+            const adaptive = computeAdaptivePlan(user);
+            const key = `${mealId}_${isAdaptedBlock ? 'ad' : 'orig'}`;
+            const drafts = pendingDrafts[key] || {};
+            const hasChanges = Object.keys(drafts).length > 0;
+
+            const btn = document.getElementById(`btn-save-meal-${key}`);
+            const liveTotalsEl = document.getElementById(`live-totals-${key}`);
+
+            let sumKcal = 0, sumProt = 0, sumCarb = 0, sumGord = 0;
+
+            if (isAdaptedBlock && adaptive.adaptedNextMeal && adaptive.adaptedNextMeal.mealId === mealId) {
+                adaptive.adaptedNextMeal.items.forEach((it, idx) => {
+                    const d = drafts[idx];
+                    const effFoodId = d?.foodId !== undefined ? d.foodId : it.foodId;
+                    const effQty = d?.qty !== undefined ? d.qty : it.adjustedQty;
+                    const mac = getFoodMacros(effFoodId, effQty);
+                    sumKcal += mac.kcal; sumProt += mac.prot; sumCarb += mac.carb; sumGord += mac.gord;
+                });
+            } else {
+                const items = user.prescribedPlan[mealId] || [];
+                items.forEach((p, idx) => {
+                    const d = drafts[idx];
+                    const effFoodId = d?.foodId !== undefined ? d.foodId : p.foodId;
+                    const effQty = d?.qty !== undefined ? d.qty : p.qty;
+                    const mac = getFoodMacros(effFoodId, effQty);
+                    sumKcal += mac.kcal; sumProt += mac.prot; sumCarb += mac.carb; sumGord += mac.gord;
+                });
+            }
+
+            if (liveTotalsEl) {
+                liveTotalsEl.innerHTML = `${Math.round(sumKcal)} kcal <span class="text-slate-400 font-normal">(P: ${sumProt.toFixed(1)}g | C: ${sumCarb.toFixed(1)}g | G: ${sumGord.toFixed(1)}g)</span>`;
+            }
+
+            if (btn) {
+                if (hasChanges) {
+                    btn.className = "w-full py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-1.5";
+                    btn.innerHTML = `<i data-lucide="edit-3" class="w-4 h-4"></i> <span>Salvar de Acordo com o Usuário</span>`;
+                } else {
+                    if (isAdaptedBlock) {
+                        btn.className = "flex-1 py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-1";
+                        btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> <span>Aceitar & Registrar Refeição Ajustada</span>`;
+                    } else {
+                        btn.className = "w-full py-2.5 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition flex items-center justify-center gap-1.5";
+                        btn.innerHTML = `<i data-lucide="check-square" class="w-4 h-4"></i> <span>Registrar Refeição Conforme o Plano</span>`;
+                    }
+                }
+                if (window.lucide) lucide.createIcons();
+            }
+        }
+
+        // 8. TROCA E CRIAÇÃO DE USUÁRIOS
+        function renderUserSelector() {
+            const container = document.getElementById('user-selector-pills');
+            container.innerHTML = '';
+
+            Object.values(users).forEach(u => {
+                const isActive = u.id === activeUserId;
+                const btn = document.createElement('button');
+                btn.className = isActive
+                    ? "px-3 py-1 rounded-lg bg-brand-500 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition"
+                    : "px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition";
+                btn.innerHTML = `<i data-lucide="user" class="w-3.5 h-3.5"></i><span>${u.name}</span>`;
+                btn.onclick = () => switchUser(u.id);
+                container.appendChild(btn);
+            });
+
+            const activeUser = users[activeUserId];
+            document.getElementById('active-user-goal-tag').innerText = `${activeUser.name} • ${activeUser.description}`;
+            document.getElementById('prescribed-editor-username').innerText = activeUser.name;
+            document.getElementById('history-username').innerText = activeUser.name;
+            document.getElementById('goals-modal-user').innerText = activeUser.name;
+        }
+
+        function switchUser(userId) {
+            activeUserId = userId;
+            pendingDrafts = {};
+            saveData();
+            renderUserSelector();
+            renderDashboard();
+            renderPrescribedEditor();
+            renderHistory();
+        }
+
+        function openNewUserModal() {
+            document.getElementById('user-modal').classList.remove('hidden');
+        }
+        function closeNewUserModal() {
+            document.getElementById('user-modal').classList.add('hidden');
+        }
+
+        function createNewUser(event) {
+            event.preventDefault();
+            const name = document.getElementById('new-user-name').value.trim();
+            const desc = document.getElementById('new-user-desc').value.trim();
+            const kcal = parseFloat(document.getElementById('new-user-kcal').value) || 2000;
+            const prot = parseFloat(document.getElementById('new-user-prot').value) || 140;
+            const carb = parseFloat(document.getElementById('new-user-carb').value) || 220;
+            const gord = parseFloat(document.getElementById('new-user-gord').value) || 60;
+            const templateKey = document.getElementById('new-user-template').value;
+
+            const id = 'user_' + Date.now();
+            let basePlan = {
+                'Café da Manhã': [],
+                'Lanche da Manhã': [],
+                'Almoço': [],
+                'Lanche da Tarde': [],
+                'Jantar': []
+            };
+
+            if (templateKey !== 'empty' && users[templateKey]) {
+                basePlan = JSON.parse(JSON.stringify(users[templateKey].prescribedPlan));
+            }
+
+            users[id] = {
+                id,
+                name,
+                description: `${desc} (${kcal} kcal)`,
+                goals: { kcal, prot, carb, gord },
+                prescribedPlan: basePlan,
+                dailyLog: createEmptyDailyLog(),
+                history: []
+            };
+
+            activeUserId = id;
+            pendingDrafts = {};
+            saveData();
+            closeNewUserModal();
+            renderUserSelector();
+            renderDashboard();
+            renderPrescribedEditor();
+            renderHistory();
+        }
+
+        // 9. RENDERIZAR PAINEL DIÁRIO & CARDS COM LISTA SUSPENSA DE SUBSTITUIÇÕES
+        function renderDashboard() {
+            const user = users[activeUserId];
+            const adaptive = computeAdaptivePlan(user);
+
+            let totalKcal = 0, totalProt = 0, totalCarb = 0, totalGord = 0, totalFibra = 0;
+            Object.values(user.dailyLog.meals).forEach(mealItems => {
+                mealItems.forEach(item => {
+                    totalKcal += item.kcal;
+                    totalProt += item.prot;
+                    totalCarb += item.carb;
+                    totalGord += item.gord;
+                    totalFibra += (item.fibra || 0);
+                });
+            });
+
+            document.getElementById('stat-kcal-current').innerText = Math.round(totalKcal);
+            document.getElementById('stat-kcal-goal').innerText = user.goals.kcal;
+            let kcalPct = Math.min(100, Math.round((totalKcal / user.goals.kcal) * 100));
+            document.getElementById('stat-kcal-pct').innerText = kcalPct + '%';
+            document.getElementById('bar-kcal').style.width = kcalPct + '%';
+
+            document.getElementById('stat-prot-current').innerText = totalProt.toFixed(1) + 'g';
+            document.getElementById('stat-prot-goal').innerText = user.goals.prot;
+            let protPct = Math.min(100, Math.round((totalProt / user.goals.prot) * 100));
+            document.getElementById('stat-prot-pct').innerText = protPct + '%';
+            document.getElementById('bar-prot').style.width = protPct + '%';
+
+            document.getElementById('stat-carb-current').innerText = totalCarb.toFixed(1) + 'g';
+            document.getElementById('stat-carb-goal').innerText = user.goals.carb;
+            let carbPct = Math.min(100, Math.round((totalCarb / user.goals.carb) * 100));
+            document.getElementById('stat-carb-pct').innerText = carbPct + '%';
+            document.getElementById('bar-carb').style.width = carbPct + '%';
+
+            document.getElementById('stat-gord-current').innerText = totalGord.toFixed(1) + 'g';
+            document.getElementById('stat-gord-goal').innerText = user.goals.gord;
+            let gordPct = Math.min(100, Math.round((totalGord / user.goals.gord) * 100));
+            document.getElementById('stat-gord-pct').innerText = gordPct + '%';
+            document.getElementById('bar-gord').style.width = gordPct + '%';
+
+            document.getElementById('stat-fibra-current').innerText = totalFibra.toFixed(1) + 'g';
+
+            const banner = document.getElementById('adaptive-status-banner');
+            const d = adaptive.cumulativeDelta;
+            const hasSignificantDelta = Math.abs(d.kcal) >= 15 || Math.abs(d.carb) >= 3 || Math.abs(d.prot) >= 3;
+
+            if (!hasSignificantDelta) {
+                banner.className = "p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/70 dark:bg-emerald-950/30 flex items-center justify-between";
+                banner.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 rounded-xl bg-emerald-500 text-white shrink-0"><i data-lucide="check-circle-2" class="w-5 h-5"></i></div>
+                        <div>
+                            <h3 class="font-bold text-sm text-emerald-900 dark:text-emerald-200">Dentro do Planejamento Prescrito (${user.name})</h3>
+                            <p class="text-xs text-emerald-700 dark:text-emerald-400">Use a lista suspensa em cada alimento para trocar pelas opções equivalentes do nutricionista (ex: Arroz → Macarrão ou Mandioca) ou ajuste as gramas.</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const isSurplus = d.kcal > 0;
+                const signKcal = d.kcal > 0 ? `+${Math.round(d.kcal)}` : `${Math.round(d.kcal)}`;
+                const signProt = d.prot > 0 ? `+${d.prot.toFixed(1)}g` : `${d.prot.toFixed(1)}g`;
+                const signCarb = d.carb > 0 ? `+${d.carb.toFixed(1)}g` : `${d.carb.toFixed(1)}g`;
+                const signGord = d.gord > 0 ? `+${d.gord.toFixed(1)}g` : `${d.gord.toFixed(1)}g`;
+
+                banner.className = isSurplus
+                    ? "p-4 rounded-2xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    : "p-4 rounded-2xl border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3";
+
+                banner.innerHTML = `
+                    <div class="flex items-start sm:items-center space-x-3">
+                        <div class="p-2 rounded-xl ${isSurplus ? 'bg-amber-500' : 'bg-blue-500'} text-white shrink-0 mt-0.5 sm:mt-0">
+                            <i data-lucide="sliders" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm ${isSurplus ? 'text-amber-900 dark:text-amber-200' : 'text-blue-900 dark:text-blue-200'}">
+                                ${isSurplus ? 'Superávit Acumulado — Compensação em Cascata Ativa!' : 'Déficit Acumulado — Compensação em Cascata Ativa!'}
+                            </h3>
+                            <p class="text-xs ${isSurplus ? 'text-amber-800 dark:text-amber-300' : 'text-blue-800 dark:text-blue-300'} mt-0.5">
+                                Saldo real até agora: <strong>${signKcal} kcal</strong> | Proteína: <strong>${signProt}</strong> | Carbo: <strong>${signCarb}</strong> | Gordura: <strong>${signGord}</strong>.
+                                ${adaptive.nextPendingMealId ? `<br>As porções de <strong>${adaptive.nextPendingMealId}</strong> foram ajustadas sem extrapolar nenhum macro.` : ''}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const container = document.getElementById('meals-container');
+            container.innerHTML = '';
+
+            MEAL_ORDER.forEach((mealMeta, mealIdx) => {
+                const mealId = mealMeta.id;
+                const nextMealMeta = MEAL_ORDER[mealIdx + 1] || null;
+                const analysis = adaptive.mealAnalysis[mealId];
+                const loggedItems = user.dailyLog.meals[mealId] || [];
+                const isNextAdapted = adaptive.adaptedNextMeal && adaptive.adaptedNextMeal.mealId === mealId;
+
+                let statusBadge = '';
+                if (analysis.isLogged) {
+                    const diffKcal = Math.round(analysis.actual.kcal - analysis.presc.kcal);
+                    if (Math.abs(diffKcal) < 10) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 font-semibold">No alvo</span>`;
+                    } else if (diffKcal > 0) {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 font-semibold">+${diffKcal} kcal</span>`;
+                    } else {
+                        statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 font-semibold">${diffKcal} kcal</span>`;
+                    }
+                } else if (isNextAdapted) {
+                    statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs bg-amber-500 text-white font-bold">Ajustada</span>`;
+                } else {
+                    statusBadge = `<span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">Pendente</span>`;
+                }
+
+                let cardHtml = `
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border ${isNextAdapted ? 'border-amber-400 dark:border-amber-600 ring-1 ring-amber-400/50' : 'border-slate-200 dark:border-slate-800'} shadow-sm overflow-hidden">
+                        <div class="p-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex flex-wrap justify-between items-center gap-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">${mealMeta.time}</span>
+                                <h3 class="font-bold text-base">${mealMeta.title}</h3>
+                                ${statusBadge}
+                            </div>
+                            <div class="text-xs text-slate-500">
+                                Meta Original: <strong>${Math.round(analysis.presc.kcal)} kcal</strong> (P: ${analysis.presc.prot.toFixed(0)}g | C: ${analysis.presc.carb.toFixed(0)}g | G: ${analysis.presc.gord.toFixed(0)}g)
+                            </div>
+                        </div>
+                        <div class="p-4 space-y-4">
+                `;
+
+                if (!analysis.isLogged) {
+                    const isAd = isNextAdapted;
+                    const key = `${mealId}_${isAd ? 'ad' : 'orig'}`;
+                    const drafts = pendingDrafts[key] || {};
+                    const hasChanges = Object.keys(drafts).length > 0;
+                    const { suggestions: intraSuggestions, overflow } = computeIntraMealSuggestions(mealId, isAd);
+                    const hasMultipleSuggestions = Object.keys(intraSuggestions).length > 1;
+
+                    const baseItemsList = isAd
+                        ? adaptive.adaptedNextMeal.items
+                        : analysis.prescribedItems.map(p => {
+                            const m = getFoodMacros(p.foodId, p.qty);
+                            return { ...p, ...m, originalQty: p.qty, adjustedQty: p.qty };
+                        });
+
+                    let sumKcal = 0, sumProt = 0, sumCarb = 0, sumGord = 0;
+                    baseItemsList.forEach((it, idx) => {
+                        const dItem = drafts[idx];
+                        const effFoodId = dItem?.foodId !== undefined ? dItem.foodId : it.foodId;
+                        const effQty = dItem?.qty !== undefined ? dItem.qty : it.adjustedQty;
+                        const m = getFoodMacros(effFoodId, effQty);
+                        sumKcal += m.kcal; sumProt += m.prot; sumCarb += m.carb; sumGord += m.gord;
+                    });
+
+                    cardHtml += `
+                        <div class="${isAd ? 'p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/80 space-y-3' : 'space-y-3'}">
+                            <div class="flex flex-wrap justify-between items-center gap-1">
+                                <span class="text-xs font-bold uppercase tracking-wider ${isAd ? 'text-amber-800 dark:text-amber-300 flex items-center gap-1' : 'text-slate-400'}">
+                                    ${isAd ? '<i data-lucide="sparkles" class="w-4 h-4"></i> Sugestão Ajustada (Troque ou edite se necessário)' : 'Cardápio Prescrito (Troque na lista ou edite as gramas)'}
+                                </span>
+                                <span id="live-totals-${key}" class="text-xs font-bold ${isAd ? 'text-amber-900 dark:text-amber-200' : 'text-slate-700 dark:text-slate-300'}">${Math.round(sumKcal)} kcal <span class="text-slate-400 font-normal">(P: ${sumProt.toFixed(1)}g | C: ${sumCarb.toFixed(1)}g | G: ${sumGord.toFixed(1)}g)</span></span>
+                            </div>
+
+                            ${hasMultipleSuggestions ? `
+                                <div class="flex justify-end">
+                                    <button type="button" onclick="applyAllIntraMealSuggestions('${mealId}', ${isAd})" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">
+                                        <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Aplicar todas as compensações sugeridas desta refeição
+                                    </button>
+                                </div>
+                            ` : ''}
+
+                            <div class="space-y-2.5 text-sm">
+                                ${baseItemsList.map((it, idx) => {
+                                    const dItem = drafts[idx];
+                                    const activeFoodId = dItem?.foodId !== undefined ? dItem.foodId : it.foodId;
+                                    const activeQty = dItem?.qty !== undefined ? dItem.qty : it.adjustedQty;
+                                    const isSubChanged = dItem?.foodId !== undefined && dItem.foodId !== it.foodId;
+                                    const isModified = dItem !== undefined;
+                                    const isZeroed = activeQty === 0;
+                                    const activeFoodObj = foods.find(f => f.id === activeFoodId);
+                                    const activeUnit = activeFoodObj ? activeFoodObj.unit : it.unit;
+
+                                    const prescribedBaseItem = analysis.prescribedItems[idx];
+                                    const options = getOptionsForPrescribedItem(prescribedBaseItem, it.adjustedQty);
+                                    const hasSubstitutes = options.length > 1;
+
+                                    const sug = intraSuggestions[idx];
+                                    let sugPillHtml = '';
+                                    if (sug) {
+                                        const sign = sug.deltaQty > 0 ? `+${sug.deltaQty}` : `${sug.deltaQty}`;
+                                        sugPillHtml = `
+                                            <button type="button" onclick="applyIntraMealSuggestion('${mealId}', ${idx}, ${sug.suggestedTotal}, ${it.adjustedQty}, ${isAd})"
+                                                title="Clique para ajustar para ${sug.suggestedTotal}${sug.unit} e equilibrar os macros desta refeição"
+                                                class="px-2 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-extrabold shadow-sm transition">
+                                                ${sign}${sug.unit}
+                                            </button>
+                                        `;
+                                    }
+
+                                    let foodTitleOrDropdownHtml = '';
+                                    if (hasSubstitutes) {
+                                        foodTitleOrDropdownHtml = `
+                                            <div class="w-full">
+                                                <select onchange="handleSubstituteDropdownChange('${mealId}', ${idx}, this.value, ${isAd})"
+                                                    class="w-full rounded-lg border ${isSubChanged ? 'border-orange-400 bg-orange-50/70 dark:bg-slate-800 text-orange-700 dark:text-orange-300 font-bold' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-semibold'} px-2.5 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 ${isZeroed ? 'line-through opacity-60' : ''}">
+                                                    ${options.map(opt => {
+                                                        const optFood = foods.find(f => f.id === opt.foodId);
+                                                        const optName = optFood ? optFood.name : 'Alimento';
+                                                        const optUnit = optFood ? optFood.unit : 'g';
+                                                        const labelPrefix = opt.isOriginal ? '★ Base: ' : '⇄ Substituir: ';
+                                                        return `<option value="${opt.foodId}" ${opt.foodId === activeFoodId ? 'selected' : ''}>${labelPrefix}${optName} (${opt.qty}${optUnit})</option>`;
+                                                    }).join('')}
+                                                </select>
+                                            </div>
+                                        `;
+                                    } else {
+                                        foodTitleOrDropdownHtml = `
+                                            <span class="font-medium block truncate ${isZeroed ? 'line-through text-slate-400' : ''}">${it.name}</span>
+                                        `;
+                                    }
+
+                                    return `
+                                    <div class="p-2.5 rounded-xl ${isAd ? 'bg-white/95 dark:bg-slate-900/95 border-amber-100 dark:border-slate-800' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-100 dark:border-slate-800'} border ${isModified ? '!border-orange-400 dark:!border-orange-500' : ''} flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <div class="w-full sm:flex-1 min-w-0">
+                                            ${foodTitleOrDropdownHtml}
+                                            <div class="flex flex-wrap items-center gap-2 mt-1">
+                                                ${isAd && it.adjustedQty !== it.originalQty && !isSubChanged ? `<span class="text-[11px] text-slate-400">Original: ${it.originalQty}${it.unit} → Ajustado: ${it.adjustedQty}${it.unit}</span>` : ''}
+                                                ${isSubChanged ? `<span class="text-[11px] text-orange-600 dark:text-orange-400 font-medium">Substituído (Base: ${it.name} ${it.originalQty}${it.unit})</span>` : ''}
+                                                ${isZeroed ? `<button type="button" onclick="prepareItemSubstitution('${mealId}', ${idx}, ${isAd})" class="text-[11px] text-brand-500 font-bold underline">+ Buscar outro alimento fora da lista</button>` : ''}
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center justify-end space-x-1.5 shrink-0">
+                                            ${sugPillHtml}
+                                            <input type="number" value="${activeQty}" min="0" step="any"
+                                                oninput="handleDraftQtyLiveInput('${mealId}', ${idx}, this.value, ${it.adjustedQty}, ${isAd})"
+                                                onchange="handleDraftQtyCommit('${mealId}', ${idx}, this.value, ${it.adjustedQty}, ${isAd})"
+                                                class="w-20 rounded-lg border ${isModified ? 'border-orange-400 bg-orange-50/50 dark:bg-slate-900 text-orange-600 dark:text-orange-400' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'} px-2 py-1.5 text-sm font-bold text-right focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                            <span class="text-xs font-semibold text-slate-500 w-5">${activeUnit}</span>
+                                        </div>
+                                    </div>
+                                `}).join('')}
+                            </div>
+
+                            ${overflow ? `
+                                <div class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-xs text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                                    <i data-lucide="arrow-right-circle" class="w-4 h-4 text-brand-500 shrink-0 mt-0.5"></i>
+                                    <span>Trava anti-extrapolo: o saldo restante (${Math.abs(overflow.carb) >= 2 ? `Carb: ${overflow.carb > 0 ? '-' : '+'}${Math.abs(overflow.carb).toFixed(1)}g ` : ''}${Math.abs(overflow.prot) >= 2 ? `Prot: ${overflow.prot > 0 ? '-' : '+'}${Math.abs(overflow.prot).toFixed(1)}g ` : ''}${Math.abs(overflow.gord) >= 2 ? `Gord: ${overflow.gord > 0 ? '-' : '+'}${Math.abs(overflow.gord).toFixed(1)}g` : ''}) será empurrado automaticamente para <strong>${nextMealMeta ? nextMealMeta.title : 'o fechamento do dia'}</strong>.</span>
+                                </div>
+                            ` : ''}
+
+                            ${isAd ? `
+                                <div class="flex flex-col sm:flex-row gap-2 pt-1">
+                                    <button id="btn-save-meal-${key}" onclick="applyPrescribedMeal('${mealId}', true)"
+                                        class="${hasChanges ? 'w-full py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-1.5' : 'flex-1 py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-1'}">
+                                        <i data-lucide="${hasChanges ? 'edit-3' : 'check'}" class="w-4 h-4"></i>
+                                        <span>${hasChanges ? 'Salvar de Acordo com o Usuário' : 'Aceitar & Registrar Refeição Ajustada'}</span>
+                                    </button>
+                                    <button onclick="applyPrescribedMeal('${mealId}', false, true)" class="py-2.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold transition">
+                                        Ignorar Ajuste (Comer Original)
+                                    </button>
+                                </div>
+                            ` : `
+                                <button id="btn-save-meal-${key}" onclick="applyPrescribedMeal('${mealId}', false)"
+                                    class="${hasChanges
+                                        ? 'w-full py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-1.5'
+                                        : 'w-full py-2.5 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition flex items-center justify-center gap-1.5'}">
+                                    <i data-lucide="${hasChanges ? 'edit-3' : 'check-square'}" class="w-4 h-4"></i>
+                                    <span>${hasChanges ? 'Salvar de Acordo com o Usuário' : 'Registrar Refeição Conforme o Plano'}</span>
+                                </button>
+                            `}
+                        </div>
+                    `;
+                } else {
+                    const hasSnapshot = !!(lastSavedSnapshots[activeUserId] && lastSavedSnapshots[activeUserId][mealId]);
+
+                    cardHtml += `
+                        <div class="space-y-3">
+                            <div class="flex flex-wrap justify-between items-center gap-2 text-xs text-slate-500">
+                                <span>Itens registrados (edite as gramas ou desfaça o registro):</span>
+                                <span class="font-bold text-slate-800 dark:text-slate-200">Total Real: ${Math.round(analysis.actual.kcal)} kcal</span>
+                            </div>
+                            <div class="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
+                                ${loggedItems.map((item, idx) => `
+                                    <div class="p-2.5 flex items-center justify-between gap-2 bg-white dark:bg-slate-900 text-sm">
+                                        <div class="flex-1 min-w-0 pr-2">
+                                            <span class="font-medium block truncate">${item.name}</span>
+                                            <span class="text-xs text-slate-400">${Math.round(item.kcal)} kcal • P: ${item.prot.toFixed(1)}g | C: ${item.carb.toFixed(1)}g | G: ${item.gord.toFixed(1)}g</span>
+                                        </div>
+                                        <div class="flex items-center space-x-1.5 shrink-0">
+                                            <input type="number" value="${item.qty}" min="0" step="any" onchange="updateLoggedItemQty('${mealId}', ${idx}, this.value)" class="w-20 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-1 text-xs font-bold text-right">
+                                            <span class="text-xs text-slate-500 w-5">${item.unit}</span>
+                                            <button onclick="removeMealItem('${mealId}', ${idx})" class="text-slate-400 hover:text-red-500 p-1" title="Remover item">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                                <button type="button" onclick="undoMealSave('${mealId}')" class="w-full sm:w-auto flex-1 py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-200 hover:text-amber-700 dark:hover:text-amber-300 border border-slate-200 dark:border-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                    <span>${hasSnapshot ? 'Desfazer Salvamento (Voltar e Editar)' : 'Reabrir Refeição para Edição'}</span>
+                                </button>
+                                <button type="button" onclick="cancelAndClearMeal('${mealId}')" class="py-2 px-3 rounded-xl bg-red-50 dark:bg-red-950/30 hover:bg-red-100 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 text-xs font-semibold transition flex items-center justify-center gap-1" title="Limpa o registro e retorna ao cardápio prescrito original">
+                                    <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+                                    <span>Cancelar Refeição</span>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                cardHtml += `</div></div>`;
+                container.innerHTML += cardHtml;
+            });
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function applyPrescribedMeal(mealId, useAdapted, forceStrictOriginal = false) {
+            const user = users[activeUserId];
+            const adaptive = computeAdaptivePlan(user);
+            const key = `${mealId}_${useAdapted ? 'ad' : 'orig'}`;
+            const drafts = forceStrictOriginal ? {} : (pendingDrafts[key] || {});
+
+            if (!lastSavedSnapshots[activeUserId]) lastSavedSnapshots[activeUserId] = {};
+            lastSavedSnapshots[activeUserId][mealId] = {
+                useAdapted,
+                drafts: JSON.parse(JSON.stringify(drafts))
+            };
+
+            const existingExtras = (user.dailyLog.meals[mealId] || []).filter(ex => ex.isExtra);
+
+            let mainItems = [];
+            if (useAdapted && adaptive.adaptedNextMeal && adaptive.adaptedNextMeal.mealId === mealId) {
+                mainItems = adaptive.adaptedNextMeal.items
+                    .map((it, idx) => {
+                        const dItem = drafts[idx];
+                        const finalFoodId = dItem?.foodId !== undefined ? dItem.foodId : it.foodId;
+                        const finalQty = dItem?.qty !== undefined ? dItem.qty : it.adjustedQty;
+                        const mac = getFoodMacros(finalFoodId, finalQty);
+                        return {
+                            foodId: finalFoodId,
+                            name: mac.name,
+                            qty: finalQty,
+                            unit: mac.unit,
+                            kcal: mac.kcal,
+                            prot: mac.prot,
+                            carb: mac.carb,
+                            gord: mac.gord,
+                            fibra: mac.fibra
+                        };
+                    })
+                    .filter(item => item.qty > 0);
+            } else {
+                const prescribed = user.prescribedPlan[mealId] || [];
+                mainItems = prescribed
+                    .map((p, idx) => {
+                        const dItem = drafts[idx];
+                        const finalFoodId = dItem?.foodId !== undefined ? dItem.foodId : p.foodId;
+                        const finalQty = dItem?.qty !== undefined ? dItem.qty : p.qty;
+                        const mac = getFoodMacros(finalFoodId, finalQty);
+                        return {
+                            foodId: finalFoodId,
+                            name: mac.name,
+                            qty: finalQty,
+                            unit: mac.unit,
+                            kcal: mac.kcal,
+                            prot: mac.prot,
+                            carb: mac.carb,
+                            gord: mac.gord,
+                            fibra: mac.fibra
+                        };
+                    })
+                    .filter(item => item.qty > 0);
+            }
+
+            user.dailyLog.meals[mealId] = [...mainItems, ...existingExtras];
+
+            delete pendingDrafts[`${mealId}_orig`];
+            delete pendingDrafts[`${mealId}_ad`];
+            saveData();
+            renderDashboard();
+        }
+
+        function undoMealSave(mealId) {
+            const user = users[activeUserId];
+            const snap = lastSavedSnapshots[activeUserId] && lastSavedSnapshots[activeUserId][mealId];
+
+            if (snap && snap.drafts) {
+                const key = `${mealId}_${snap.useAdapted ? 'ad' : 'orig'}`;
+                pendingDrafts[key] = JSON.parse(JSON.stringify(snap.drafts));
+            } else {
+                const logged = user.dailyLog.meals[mealId] || [];
+                const prescribed = user.prescribedPlan[mealId] || [];
+                let reconstructedDrafts = {};
+                prescribed.forEach((p, idx) => {
+                    const possibleIds = [p.foodId, ...(p.substitutes || []).map(s => s.foodId)];
+                    const match = logged.find(l => possibleIds.includes(l.foodId) && !l.isExtra);
+                    if (!match) {
+                        reconstructedDrafts[idx] = { qty: 0 };
+                    } else if (match.foodId !== p.foodId || match.qty !== p.qty) {
+                        reconstructedDrafts[idx] = { foodId: match.foodId, qty: match.qty };
+                    }
+                });
+                if (Object.keys(reconstructedDrafts).length > 0) {
+                    pendingDrafts[`${mealId}_orig`] = reconstructedDrafts;
+                }
+            }
+
+            user.dailyLog.meals[mealId] = [];
+            saveData();
+            renderDashboard();
+        }
+
+        function cancelAndClearMeal(mealId) {
+            if (!confirm(`Deseja cancelar o registro de "${mealId}" e voltar ao cardápio prescrito original?`)) return;
+            users[activeUserId].dailyLog.meals[mealId] = [];
+            delete pendingDrafts[`${mealId}_orig`];
+            delete pendingDrafts[`${mealId}_ad`];
+            if (lastSavedSnapshots[activeUserId]) {
+                delete lastSavedSnapshots[activeUserId][mealId];
+            }
+            saveData();
+            renderDashboard();
+        }
+
+        function updateLoggedItemQty(mealId, index, newQtyVal) {
+            const newQty = parseFloat(newQtyVal);
+            if (isNaN(newQty) || newQty < 0) return;
+
+            const user = users[activeUserId];
+            if (newQty === 0) {
+                user.dailyLog.meals[mealId].splice(index, 1);
+                saveData();
+                renderDashboard();
+                return;
+            }
+
+            const item = user.dailyLog.meals[mealId][index];
+            if (!item) return;
+
+            if (item.foodId) {
+                const mac = getFoodMacros(item.foodId, newQty);
+                item.qty = newQty;
+                item.kcal = mac.kcal;
+                item.prot = mac.prot;
+                item.carb = mac.carb;
+                item.gord = mac.gord;
+                item.fibra = mac.fibra;
+            } else {
+                const ratio = newQty / item.qty;
+                item.qty = newQty;
+                item.kcal *= ratio;
+                item.prot *= ratio;
+                item.carb *= ratio;
+                item.gord *= ratio;
+                item.fibra *= ratio;
+            }
+
+            saveData();
+            renderDashboard();
+        }
+
+        function removeMealItem(mealId, index) {
+            users[activeUserId].dailyLog.meals[mealId].splice(index, 1);
+            saveData();
+            renderDashboard();
+        }
+
+        // 10. EDITOR DO PLANO BASE DO USUÁRIO
+        function renderPrescribedEditor() {
+            const user = users[activeUserId];
+            const container = document.getElementById('prescribed-editor-container');
+            container.innerHTML = '';
+
+            MEAL_ORDER.forEach(mealMeta => {
+                const mealId = mealMeta.id;
+                const items = user.prescribedPlan[mealId] || [];
+
+                let html = `
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 space-y-3">
+                        <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                            <h3 class="font-bold text-base">${mealMeta.time} — ${mealMeta.title}</h3>
+                            <button onclick="addPrescribedItemPrompt('${mealId}')" class="px-3 py-1.5 rounded-lg bg-brand-50 dark:bg-brand-950/50 text-brand-600 dark:text-brand-400 text-xs font-bold hover:bg-brand-100 transition">+ Adicionar Alimento</button>
+                        </div>
+                        <div class="space-y-3">
+                `;
+
+                if (items.length === 0) {
+                    html += `<p class="text-xs text-slate-400">Nenhum alimento prescrito nesta refeição.</p>`;
+                } else {
+                    items.forEach((p, idx) => {
+                        const mac = getFoodMacros(p.foodId, p.qty);
+                        const subs = p.substitutes || [];
+
+                        html += `
+                            <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-2.5">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                    <div class="w-full sm:flex-1">
+                                        <span class="font-semibold text-sm block leading-snug text-slate-900 dark:text-slate-100">${mac.name}</span>
+                                        <span class="text-xs text-slate-500 dark:text-slate-400 block mt-0.5">${Math.round(mac.kcal)} kcal • P: ${mac.prot.toFixed(1)}g | C: ${mac.carb.toFixed(1)}g | G: ${mac.gord.toFixed(1)}g</span>
+                                    </div>
+                                    <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/70 dark:border-slate-700/70">
+                                        <select onchange="updatePrescribedFixed('${mealId}', ${idx}, this.value)" class="flex-1 sm:flex-initial rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-medium">
+                                            <option value="false" ${!p.fixed ? 'selected' : ''}>Ajustável (Auto)</option>
+                                            <option value="true" ${p.fixed ? 'selected' : ''}>Porção Fixa</option>
+                                        </select>
+                                        <div class="flex items-center space-x-1.5 shrink-0">
+                                            <input type="number" value="${p.qty}" min="1" step="any" onchange="updatePrescribedQty('${mealId}', ${idx}, this.value)" class="w-20 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-bold text-right">
+                                            <span class="text-xs font-semibold text-slate-500 w-5">${mac.unit}</span>
+                                            <button onclick="removePrescribedItem('${mealId}', ${idx})" class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition" title="Remover do plano base">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center gap-1.5">
+                                    <span class="text-[11px] font-semibold text-slate-400 mr-1">Opções de substituição:</span>
+                                    ${subs.map((s, sIdx) => {
+                                        const sFood = foods.find(f => f.id === s.foodId);
+                                        const sName = sFood ? sFood.name : 'Alimento';
+                                        const sUnit = sFood ? sFood.unit : 'g';
+                                        return `
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-700 dark:text-slate-300">
+                                                <span>${sName} (<strong>${s.qty}${sUnit}</strong>)</span>
+                                                <button type="button" onclick="removeSubstituteOption('${mealId}', ${idx}, ${sIdx})" class="text-slate-400 hover:text-red-500 ml-0.5" title="Remover substituto">×</button>
+                                            </span>
+                                        `;
+                                    }).join('')}
+                                    <button type="button" onclick="addSubstituteOptionPrompt('${mealId}', ${idx})" class="px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 text-[11px] font-bold hover:bg-brand-100 transition">
+                                        + Substituto
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `</div></div>`;
+                container.innerHTML += html;
+            });
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function addSubstituteOptionPrompt(mealId, itemIdx) {
+            const search = prompt("Digite parte do nome do alimento substituto na tabela TACO/Suplementos:");
+            if (!search) return;
+            const found = foods.find(f => f.name.toLowerCase().includes(search.toLowerCase()));
+            if (!found) {
+                alert("Alimento não encontrado na tabela. Cadastre-o primeiro na aba Tabela TACO.");
+                return;
+            }
+            const qtyStr = prompt(`Substituto encontrado: ${found.name}
+Informe a quantidade equivalente prescrita (em ${found.unit}):`, found.baseQty);
+            const qty = parseFloat(qtyStr);
+            if (isNaN(qty) || qty <= 0) return;
+
+            const item = users[activeUserId].prescribedPlan[mealId][itemIdx];
+            if (!item.substitutes) item.substitutes = [];
+            item.substitutes.push({ foodId: found.id, qty });
+            saveData();
+            renderPrescribedEditor();
+            renderDashboard();
+        }
+
+        function removeSubstituteOption(mealId, itemIdx, subIdx) {
+            users[activeUserId].prescribedPlan[mealId][itemIdx].substitutes.splice(subIdx, 1);
+            saveData();
+            renderPrescribedEditor();
+            renderDashboard();
+        }
+
+        function updatePrescribedQty(mealId, idx, val) {
+            const qty = parseFloat(val);
+            if (isNaN(qty) || qty <= 0) return;
+            users[activeUserId].prescribedPlan[mealId][idx].qty = qty;
+            saveData();
+            renderPrescribedEditor();
+            renderDashboard();
+        }
+
+        function updatePrescribedFixed(mealId, idx, fixedStr) {
+            users[activeUserId].prescribedPlan[mealId][idx].fixed = (fixedStr === 'true');
+            saveData();
+            renderDashboard();
+        }
+
+        function removePrescribedItem(mealId, idx) {
+            users[activeUserId].prescribedPlan[mealId].splice(idx, 1);
+            saveData();
+            renderPrescribedEditor();
+            renderDashboard();
+        }
+
+        function addPrescribedItemPrompt(mealId) {
+            const search = prompt("Digite parte do nome do alimento da tabela TACO/Suplementos para incluir nesta refeição:");
+            if (!search) return;
+            const found = foods.find(f => f.name.toLowerCase().includes(search.toLowerCase()));
+            if (!found) {
+                alert("Alimento não encontrado na tabela. Cadastre-o primeiro ou tente outro nome.");
+                return;
+            }
+            const qtyStr = prompt(`Alimento encontrado: ${found.name}
+Informe a quantidade prescrita (em ${found.unit}):`, found.baseQty);
+            const qty = parseFloat(qtyStr);
+            if (isNaN(qty) || qty <= 0) return;
+
+            const isVeg = found.category === 'Hortaliças, Verduras e Legumes';
+            users[activeUserId].prescribedPlan[mealId].push({ foodId: found.id, qty, fixed: isVeg, substitutes: [] });
+            saveData();
+            renderPrescribedEditor();
+            renderDashboard();
+        }
+
+        function resetUserPlanToDefault() {
+            const defaults = getDefaultUserPlans();
+            if (!defaults[activeUserId]) {
+                alert("Este perfil foi criado manualmente e não possui um modelo padrão de fábrica.");
+                return;
+            }
+            if (!confirm("Deseja restaurar o plano alimentar, substitutos e metas originais deste usuário?")) return;
+            users[activeUserId].prescribedPlan = defaults[activeUserId].prescribedPlan;
+            users[activeUserId].goals = defaults[activeUserId].goals;
+            pendingDrafts = {};
+            saveData();
+            renderPrescribedEditor();
+            renderDashboard();
+        }
+
+        // 11. ADICIONAR ITEM EXTRA / AVULSO PELO BUSCADOR
+        function filterFoodList() {
+            const query = document.getElementById('food-search-input').value.toLowerCase();
+            const categoryFilter = document.getElementById('filter-category-select').value;
+            const resultsContainer = document.getElementById('food-search-results');
+            resultsContainer.innerHTML = '';
+
+            const filtered = foods.filter(f => {
+                const matchName = f.name.toLowerCase().includes(query);
+                const matchCat = categoryFilter === '' || f.category === categoryFilter;
+                return matchName && matchCat;
+            }).slice(0, 30);
+
+            if (filtered.length === 0) {
+                resultsContainer.innerHTML = `<div class="p-2 text-xs text-slate-400">Nenhum alimento encontrado.</div>`;
+                return;
+            }
+
+            filtered.forEach(f => {
+                const div = document.createElement('div');
+                div.className = "p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer flex justify-between items-center text-sm transition";
+                div.innerHTML = `
+                    <div class="pr-2 min-w-0">
+                        <span class="font-medium block leading-tight truncate">${f.name}</span>
+                        <span class="text-xs text-slate-400">Base: ${f.baseQty}${f.unit} • ${f.kcal} kcal | P: ${f.prot}g | C: ${f.carb}g | G: ${f.gord}g</span>
+                    </div>
+                    <span class="text-xs bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300 px-2 py-1 rounded-md font-semibold whitespace-nowrap shrink-0">+ Usar</span>
+                `;
+                div.onclick = () => selectFoodForAddition(f);
+                resultsContainer.appendChild(div);
+            });
+        }
+
+        function selectFoodForAddition(food) {
+            document.getElementById('selected-food-id').value = food.id;
+            document.getElementById('selected-food-name').innerText = food.name;
+            document.getElementById('selected-food-base').innerText = `Referência da tabela: ${food.baseQty} ${food.unit}`;
+            document.getElementById('selected-food-unit').innerText = food.unit;
+            document.getElementById('selected-food-qty').value = food.baseQty;
+            document.getElementById('selected-food-container').classList.remove('hidden');
+            calculatePreview();
+        }
+
+        function calculatePreview() {
+            const foodId = document.getElementById('selected-food-id').value;
+            const qty = parseFloat(document.getElementById('selected-food-qty').value) || 0;
+            const food = foods.find(f => f.id === foodId);
+            if (!food) return;
+
+            const ratio = qty / food.baseQty;
+            document.getElementById('prev-kcal').innerText = Math.round(food.kcal * ratio);
+            document.getElementById('prev-prot').innerText = (food.prot * ratio).toFixed(1) + 'g';
+            document.getElementById('prev-carb').innerText = (food.carb * ratio).toFixed(1) + 'g';
+            document.getElementById('prev-gord').innerText = (food.gord * ratio).toFixed(1) + 'g';
+        }
+
+        function addSelectedFoodToMeal() {
+            const foodId = document.getElementById('selected-food-id').value;
+            const qty = parseFloat(document.getElementById('selected-food-qty').value) || 0;
+            const mealName = document.getElementById('select-meal').value;
+            const food = foods.find(f => f.id === foodId);
+            if (!food || qty <= 0) return;
+
+            const ratio = qty / food.baseQty;
+            const loggedItem = {
+                foodId: food.id,
+                name: food.name,
+                qty: qty,
+                unit: food.unit,
+                kcal: food.kcal * ratio,
+                prot: food.prot * ratio,
+                carb: food.carb * ratio,
+                gord: food.gord * ratio,
+                fibra: (food.fibra || 0) * ratio,
+                isExtra: true
+            };
+
+            const user = users[activeUserId];
+            const hasOrigDraft = pendingDrafts[`${mealName}_orig`] && Object.keys(pendingDrafts[`${mealName}_orig`]).length > 0;
+            const hasAdDraft = pendingDrafts[`${mealName}_ad`] && Object.keys(pendingDrafts[`${mealName}_ad`]).length > 0;
+
+            if (user.dailyLog.meals[mealName].length === 0 && (hasOrigDraft || hasAdDraft)) {
+                applyPrescribedMeal(mealName, hasAdDraft, false);
+            }
+
+            user.dailyLog.meals[mealName].push(loggedItem);
+            saveData();
+            renderDashboard();
+            document.getElementById('selected-food-container').classList.add('hidden');
+            document.getElementById('food-search-input').value = '';
+            filterFoodList();
+        }
+
+        // 12. FINALIZAR DIA & HISTÓRICO POR USUÁRIO
+        function finalizeDay() {
+            const user = users[activeUserId];
+            if (!confirm(`Deseja finalizar o dia de hoje para ${user.name} e arquivar no histórico?`)) return;
+            user.history.unshift(JSON.parse(JSON.stringify(user.dailyLog)));
+            user.dailyLog = createEmptyDailyLog();
+            pendingDrafts = {};
+            if (lastSavedSnapshots[activeUserId]) lastSavedSnapshots[activeUserId] = {};
+            saveData();
+            renderDashboard();
+            renderHistory();
+            alert(`Dia de ${user.name} finalizado e salvo no histórico!`);
+        }
+
+        function renderHistory() {
+            const user = users[activeUserId];
+            const container = document.getElementById('history-container');
+            container.innerHTML = '';
+
+            if (!user.history || user.history.length === 0) {
+                container.innerHTML = `<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 text-center text-slate-400 text-sm">Nenhum dia finalizado no histórico de ${user.name} ainda.</div>`;
+                return;
+            }
+
+            user.history.forEach((day, index) => {
+                let totalKcal = 0, totalProt = 0, totalCarb = 0, totalGord = 0;
+                Object.values(day.meals).forEach(items => {
+                    items.forEach(i => {
+                        totalKcal += i.kcal;
+                        totalProt += i.prot;
+                        totalCarb += i.carb;
+                        totalGord += i.gord;
+                    });
+                });
+
+                container.innerHTML += `
+                    <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+                        <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <span class="font-bold text-base flex items-center space-x-2">
+                                <i data-lucide="calendar" class="w-4 h-4 text-brand-500"></i>
+                                <span>${user.name} • Data: ${day.date}</span>
+                            </span>
+                            <div class="flex items-center space-x-4">
+                                <div class="text-xs font-semibold space-x-3 text-slate-500">
+                                    <span>Total: <strong class="text-slate-900 dark:text-slate-100">${Math.round(totalKcal)}</strong> kcal</span>
+                                    <span>P: <strong class="text-blue-600">${totalProt.toFixed(1)}g</strong></span>
+                                    <span>C: <strong class="text-amber-600">${totalCarb.toFixed(1)}g</strong></span>
+                                    <span>G: <strong class="text-purple-600">${totalGord.toFixed(1)}g</strong></span>
+                                </div>
+                                <button onclick="deleteHistoryDay(${index})" class="text-xs text-red-500 hover:underline">Excluir</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function deleteHistoryDay(index) {
+            if (!confirm("Deseja remover este registro do histórico?")) return;
+            users[activeUserId].history.splice(index, 1);
+            saveData();
+            renderHistory();
+        }
+
+        // 13. TABELA MESTRE TACO & SUPLEMENTOS
+        function renderMasterFoodTable() {
+            const query = document.getElementById('master-search').value.toLowerCase();
+            const catFilter = document.getElementById('master-category-filter').value;
+            const tbody = document.getElementById('master-food-tbody');
+            tbody.innerHTML = '';
+
+            const filtered = foods.filter(f => {
+                const matchQuery = f.name.toLowerCase().includes(query) || f.category.toLowerCase().includes(query);
+                const matchCat = catFilter === '' || f.category === catFilter;
+                return matchQuery && matchCat;
+            });
+
+            filtered.forEach(f => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/50";
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">${f.name}</td>
+                    <td class="p-4"><span class="px-2 py-1 rounded-md text-xs bg-slate-100 dark:bg-slate-800 font-semibold">${f.category}</span></td>
+                    <td class="p-4">${f.baseQty} ${f.unit}</td>
+                    <td class="p-4 font-bold">${f.kcal}</td>
+                    <td class="p-4 text-blue-600 font-semibold">${f.prot}g</td>
+                    <td class="p-4 text-amber-600">${f.carb}g</td>
+                    <td class="p-4 text-purple-600">${f.gord}g</td>
+                    <td class="p-4 text-emerald-600">${f.fibra || 0}g</td>
+                    <td class="p-4 text-right space-x-2 whitespace-nowrap">
+                        <button onclick="openEditFoodModal('${f.id}')" class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-500 hover:text-white text-xs font-medium transition">Editar</button>
+                        <button onclick="deleteFood('${f.id}')" class="px-2 py-1 rounded bg-red-50 dark:bg-red-950/40 text-red-600 hover:bg-red-600 hover:text-white text-xs font-medium transition">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function openAddFoodModal() {
+            document.getElementById('modal-title').innerText = "Cadastrar Novo Alimento";
+            document.getElementById('edit-food-id').value = "";
+            document.getElementById('food-form').reset();
+            document.getElementById('food-modal').classList.remove('hidden');
+        }
+
+        function openEditFoodModal(id) {
+            const food = foods.find(f => f.id === id);
+            if (!food) return;
+            document.getElementById('modal-title').innerText = "Editar Alimento / Suplemento";
+            document.getElementById('edit-food-id').value = food.id;
+            document.getElementById('form-name').value = food.name;
+            document.getElementById('form-category').value = food.category;
+            document.getElementById('form-unit').value = food.unit;
+            document.getElementById('form-base-qty').value = food.baseQty;
+            document.getElementById('form-kcal').value = food.kcal;
+            document.getElementById('form-prot').value = food.prot;
+            document.getElementById('form-carb').value = food.carb;
+            document.getElementById('form-gord').value = food.gord;
+            document.getElementById('form-fibra').value = food.fibra || 0;
+            document.getElementById('food-modal').classList.remove('hidden');
+        }
+
+        function closeFoodModal() {
+            document.getElementById('food-modal').classList.add('hidden');
+        }
+
+        function saveFoodForm(event) {
+            event.preventDefault();
+            const id = document.getElementById('edit-food-id').value;
+            const foodData = {
+                id: id ? id : 'custom_' + Date.now(),
+                name: document.getElementById('form-name').value,
+                category: document.getElementById('form-category').value,
+                unit: document.getElementById('form-unit').value,
+                baseQty: parseFloat(document.getElementById('form-base-qty').value),
+                kcal: parseFloat(document.getElementById('form-kcal').value),
+                prot: parseFloat(document.getElementById('form-prot').value),
+                carb: parseFloat(document.getElementById('form-carb').value),
+                gord: parseFloat(document.getElementById('form-gord').value),
+                fibra: parseFloat(document.getElementById('form-fibra').value) || 0
+            };
+
+            if (id) {
+                const index = foods.findIndex(f => f.id === id);
+                if (index !== -1) foods[index] = foodData;
+            } else {
+                foods.unshift(foodData);
+            }
+
+            saveData();
+            renderMasterFoodTable();
+            filterFoodList();
+            renderDashboard();
+            closeFoodModal();
+        }
+
+        function deleteFood(id) {
+            if (!confirm("Deseja realmente excluir este alimento da tabela?")) return;
+            foods = foods.filter(f => f.id !== id);
+            saveData();
+            renderMasterFoodTable();
+            filterFoodList();
+        }
+
+        // METAS MODAL
+        function openGoalsModal() {
+            const user = users[activeUserId];
+            document.getElementById('goal-kcal-input').value = user.goals.kcal;
+            document.getElementById('goal-prot-input').value = user.goals.prot;
+            document.getElementById('goal-carb-input').value = user.goals.carb;
+            document.getElementById('goal-gord-input').value = user.goals.gord;
+            document.getElementById('goals-modal').classList.remove('hidden');
+        }
+        function closeGoalsModal() {
+            document.getElementById('goals-modal').classList.add('hidden');
+        }
+        function saveGoals() {
+            const user = users[activeUserId];
+            user.goals.kcal = parseFloat(document.getElementById('goal-kcal-input').value) || 2000;
+            user.goals.prot = parseFloat(document.getElementById('goal-prot-input').value) || 150;
+            user.goals.carb = parseFloat(document.getElementById('goal-carb-input').value) || 200;
+            user.goals.gord = parseFloat(document.getElementById('goal-gord-input').value) || 60;
+            saveData();
+            renderDashboard();
+            closeGoalsModal();
+        }
+
+        // NAVEGAÇÃO & TEMA
+        function switchTab(tabId) {
+            ['dashboard', 'prescribed', 'foods', 'history'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${t}`).className = "py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 flex items-center space-x-1.5 whitespace-nowrap shrink-0";
+            });
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabId}`).className = "py-3.5 px-1 border-b-2 font-medium text-xs sm:text-sm border-brand-500 text-brand-600 dark:text-brand-400 flex items-center space-x-1.5 whitespace-nowrap shrink-0";
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function initDarkMode() {
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+        function toggleDarkMode() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+        }
+
+        // BACKUP JSON
+        function exportBackup() {
+            const data = { foods, users, activeUserId };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `nutritrack_casal_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.foods) foods = data.foods;
+                    if (data.users) users = data.users;
+                    if (data.activeUserId) activeUserId = data.activeUserId;
+                    pendingDrafts = {};
+                    saveData();
+                    renderUserSelector();
+                    renderDashboard();
+                    renderPrescribedEditor();
+                    renderMasterFoodTable();
+                    renderHistory();
+                    filterFoodList();
+                    alert("Backup importado com sucesso!");
+                } catch (err) {
+                    alert("Erro ao ler o arquivo de backup.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // BOOT
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+            initDarkMode();
+            renderUserSelector();
+            renderDashboard();
+            renderPrescribedEditor();
+            renderMasterFoodTable();
+            renderHistory();
+            filterFoodList();
+            initFirestoreListener();
+        });
+    </script>
+</body>
+</html>
