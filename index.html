@@ -6,6 +6,11 @@
   <title>NutriTrack Pro — Painel Inteligente</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FIREBASE SDK (COMPAT PARA FUNCIONAMENTO DIRETO EM ARQUIVO ÚNICO HTML) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
       --bg: #0b0f17;
@@ -101,15 +106,32 @@
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .brand-sub.offline {
+      color: var(--accent-amber);
+    }
+
+    .brand-sub.error {
+      color: var(--accent-rose);
     }
 
     .sync-dot {
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background-color: var(--primary);
       display: inline-block;
+    }
+
+    .brand-sub.offline .sync-dot {
+      background-color: var(--accent-amber);
+    }
+
+    .brand-sub.error .sync-dot {
+      background-color: var(--accent-rose);
     }
 
     .icon-btn {
@@ -128,6 +150,20 @@
 
     .icon-btn:hover {
       background: var(--surface-elevated);
+    }
+
+    /* ALERT BANNER PARA FIREBASE PENDENTE */
+    .cloud-alert {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
     }
 
     /* PROFILE PILLS */
@@ -642,7 +678,7 @@
       margin-bottom: 6px;
     }
 
-    .form-select, .form-input {
+    .form-select, .form-input, .form-textarea {
       width: 100%;
       background: var(--surface-elevated);
       border: 1px solid var(--border);
@@ -651,6 +687,13 @@
       border-radius: var(--radius-md);
       font-size: 14px;
       font-family: inherit;
+    }
+
+    .form-textarea {
+      font-family: monospace;
+      font-size: 12px;
+      min-height: 120px;
+      resize: vertical;
     }
 
     .grid-2 {
@@ -777,11 +820,23 @@
       <div class="brand-icon">N</div>
       <div>
         <div class="brand-title">NutriTrack Pro</div>
-        <div class="brand-sub"><span class="sync-dot"></span> Multi-Perfil & TACO Custom</div>
+        <div class="brand-sub" id="sync-status-badge" onclick="openFirebaseConfigModal()">
+          <span class="sync-dot"></span>
+          <span id="sync-status-text">Conectando ao Firestore...</span>
+        </div>
       </div>
     </div>
-    <button class="icon-btn" onclick="openSettingsModal()" title="Configurações e Backup">⚙️</button>
+    <button class="icon-btn" onclick="openSettingsModal()" title="Configurações, Nuvem e Backup">⚙️</button>
   </header>
+
+  <!-- BANNER DE AVISO CASO FIREBASE AINDA NÃO ESTEJA CONECTADO -->
+  <div class="cloud-alert" id="cloud-warning-banner" style="display: none;">
+    <div>
+      <strong style="color: var(--accent-amber);">Sincronização entre navegadores pendente:</strong>
+      <span style="color: var(--text-muted); display: block; font-size: 11.5px;">Conecte suas chaves do Firebase Firestore para sincronizar em tempo real entre celular e computador.</span>
+    </div>
+    <button class="btn-primary" style="width: auto; padding: 7px 12px; font-size: 11.5px; flex-shrink: 0;" onclick="openFirebaseConfigModal()">Conectar</button>
+  </div>
 
   <!-- PROFILE SWITCHER -->
   <div class="profile-switcher" id="profile-switcher-bar"></div>
@@ -901,6 +956,40 @@
   </section>
 </div>
 
+<!-- BOTTOM SHEET: CONFIGURAR FIREBASE FIRESTORE -->
+<div class="modal-backdrop" id="firebase-modal" onclick="closeModalOnBackdrop(event, 'firebase-modal')">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title">🔥 Conectar Firebase Firestore</h3>
+    <p class="sheet-subtitle">Cole o objeto <code>firebaseConfig</code> do seu console do Firebase para sincronizar entre navegadores e dispositivos.</p>
+
+    <div class="form-group">
+      <label class="form-label">Código firebaseConfig (JSON ou JS)</label>
+      <textarea class="form-textarea" id="fb-config-input" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "seu-projeto.firebaseapp.com",
+  "projectId": "seu-projeto",
+  "storageBucket": "seu-projeto.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef"
+}'></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">ID da Coleção / Família na Nuvem (Mesmo ID nos 2 navegadores)</label>
+      <input type="text" class="form-input" id="fb-doc-id" value="familia_brentano_nutritrack">
+    </div>
+
+    <div id="fb-test-feedback" style="font-size: 12px; margin-bottom: 10px; font-weight: 600;"></div>
+
+    <div class="sheet-actions" style="grid-template-columns: 1fr 1fr 1.8fr;">
+      <button class="btn-danger-ghost" onclick="disconnectFirebase()">Desconectar</button>
+      <button class="btn-ghost" onclick="closeModal('firebase-modal')">Cancelar</button>
+      <button class="btn-primary" onclick="saveFirebaseConfig()">Salvar e Sincronizar</button>
+    </div>
+  </div>
+</div>
+
 <!-- BOTTOM SHEET 0: CRIAR NOVO USUÁRIO / PERFIL -->
 <div class="modal-backdrop" id="new-user-modal" onclick="closeModalOnBackdrop(event, 'new-user-modal')">
   <div class="bottom-sheet">
@@ -958,7 +1047,7 @@
   <div class="bottom-sheet">
     <div class="sheet-handle"></div>
     <h3 class="sheet-title">Cadastrar Alimento na Tabela</h3>
-    <p class="sheet-subtitle">Informe os dados do rótulo nutricional (proporcional a 100g ou 100ml)</p>
+    <p class="sheet-subtitle">Informe os dados do rótulo nutricional (normalizado para 100g)</p>
 
     <div class="form-group">
       <label class="form-label">Nome do Alimento / Produto</label>
@@ -1200,10 +1289,12 @@
 <div class="modal-backdrop" id="settings-modal" onclick="closeModalOnBackdrop(event, 'settings-modal')">
   <div class="bottom-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title">Configurações e Dados</h3>
-    <p class="sheet-subtitle">Gerencie usuários, tema e backup</p>
+    <h3 class="sheet-title">Configurações e Sincronização</h3>
+    <p class="sheet-subtitle">Gerencie Firebase Cloud, usuários e backups</p>
 
     <div style="display: flex; flex-direction: column; gap: 10px;">
+      <button class="btn-primary" style="padding: 12px;" onclick="closeModal('settings-modal'); openFirebaseConfigModal();">🔥 Configurar Sincronização Firebase (Nuvem)</button>
+      <button class="btn-ghost" style="padding: 12px; text-align: left;" onclick="forceCloudPull()">🔄 Forçar Atualização da Nuvem Agora</button>
       <button class="btn-ghost" style="padding: 12px; text-align: left;" onclick="closeModal('settings-modal'); openNewUserModal();">➕ Criar Novo Perfil de Usuário</button>
       <button class="btn-ghost" style="padding: 12px; text-align: left;" onclick="toggleTheme()">🌓 Alternar Tema Claro / Escuro</button>
       <button class="btn-ghost" style="padding: 12px; text-align: left;" onclick="exportData()">📤 Exportar Backup Completo (JSON)</button>
@@ -1231,8 +1322,31 @@
 
 <script>
   /**
-   * TABELA TACO BASE (valores por 100g)
+   * ============================================================================
+   * CONFIGURAÇÃO DO FIREBASE FIRESTORE
+   * Você pode colar suas chaves diretamente no objeto DEFAULT_FIREBASE_CONFIG abaixo
+   * (para já deixar fixo no GitHub Pages para todos os dispositivos) OU configurar
+   * pela interface tocando no botão "Conectar" no topo do app.
+   * ============================================================================
    */
+  const DEFAULT_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCVAwFCg0pQtWZJvKklNtz4RRWDCKFiSuA",
+    authDomain: "piloto3bpm.firebaseapp.com",
+    projectId: "piloto3bpm",
+    storageBucket: "piloto3bpm.firebasestorage.app",
+    messagingSenderId: "237371471010",
+    appId: "1:237371471010:web:bb0042d96507a6602193fb"
+  };
+
+  const FB_CONFIG_STORAGE_KEY = 'nutritrack_firebase_credentials_v1';
+  const FIREBASE_COLLECTION = 'nutritrack_workspaces';
+
+  let firestoreDb = null;
+  let firestoreUnsubscribe = null;
+  let isApplyingRemoteUpdate = false;
+  let fbDocId = 'familia_brentano_nutritrack';
+
+  // TABELA TACO BASE (valores por 100g)
   const BASE_TACO_DB = [
     // PÃES & MATINAIS (paes_massas)
     { id: 'pao_frances', name: 'Pão francês (pão de sal)', kcal: 300, p: 8.0, c: 58.6, g: 3.1, cat: 'paes_massas' },
@@ -1439,13 +1553,19 @@
     }
   };
 
-  const STORAGE_KEY = 'nutritrack_pro_v7_state';
-  let appData = loadAppData();
+  let appData = createDefaultAppData();
   let currentTacoFilter = 'all';
-
   let editingDailyTarget = null;
   let editingBaseItemTarget = null;
   let editingBaseMealTarget = null;
+
+  function getTodayDateString() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
 
   function sortMealsByTime(mealsArray) {
     return [...mealsArray].sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
@@ -1470,22 +1590,7 @@
     }));
   }
 
-  function loadAppData() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!parsed.customFoods) parsed.customFoods = [];
-        if (!parsed.activeProfile) parsed.activeProfile = Object.keys(parsed.profiles)[0];
-        Object.keys(parsed.profiles).forEach(k => {
-          if (!parsed.profiles[k].dailyMeals) {
-            parsed.profiles[k].dailyMeals = buildDailyFromBase(parsed.profiles[k].baseMeals);
-          }
-        });
-        return parsed;
-      }
-    } catch (e) { console.warn('Erro ao ler storage', e); }
-
+  function createDefaultAppData() {
     const profilesInit = JSON.parse(JSON.stringify(DEFAULT_PROFILES));
     Object.keys(profilesInit).forEach(k => {
       profilesInit[k].baseMeals = sortMealsByTime(profilesInit[k].baseMeals);
@@ -1493,18 +1598,232 @@
     });
     return {
       activeProfile: 'jean',
+      currentDate: getTodayDateString(),
+      updatedAt: Date.now(),
       customFoods: [],
       profiles: profilesInit
     };
   }
 
+  // PERSISTÊNCIA DIRETA NO FIREBASE FIRESTORE EM TEMPO REAL
   function saveAppData() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-    } catch (e) { console.warn('Erro ao salvar storage', e); }
+    appData.updatedAt = Date.now();
+
+    if (firestoreDb && !isApplyingRemoteUpdate) {
+      updateSyncBadge('syncing', 'Salvando no Firestore...');
+      firestoreDb.collection(FIREBASE_COLLECTION).doc(fbDocId).set(appData)
+        .then(() => {
+          updateSyncBadge('online', 'Firestore Sincronizado ✓');
+        })
+        .catch(err => {
+          console.error('Erro ao gravar no Firestore:', err);
+          updateSyncBadge('error', 'Erro de permissão no Firestore');
+        });
+    }
   }
 
-  // Retorna toda a base TACO + alimentos cadastrados manualmente pelo usuário
+  // ============================================================================
+  // CONEXÃO E ESCUTA EM TEMPO REAL COM FIREBASE FIRESTORE
+  // ============================================================================
+  function updateSyncBadge(status, text) {
+    const badge = document.getElementById('sync-status-badge');
+    const label = document.getElementById('sync-status-text');
+    const banner = document.getElementById('cloud-warning-banner');
+
+    badge.className = 'brand-sub';
+    if (status === 'offline') {
+      badge.classList.add('offline');
+      banner.style.display = 'flex';
+    } else if (status === 'error') {
+      badge.classList.add('error');
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+    label.textContent = text;
+  }
+
+  function getStoredFirebaseConfig() {
+    if (DEFAULT_FIREBASE_CONFIG && DEFAULT_FIREBASE_CONFIG.apiKey && DEFAULT_FIREBASE_CONFIG.projectId) {
+      return { config: DEFAULT_FIREBASE_CONFIG, docId: fbDocId };
+    }
+    try {
+      const raw = localStorage.getItem(FB_CONFIG_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return null;
+  }
+
+  function initFirebaseSync() {
+    const saved = getStoredFirebaseConfig();
+    if (!saved || !saved.config || !saved.config.apiKey || !saved.config.projectId) {
+      updateSyncBadge('offline', 'Modo Local (Conectar Firebase)');
+      return;
+    }
+
+    fbDocId = saved.docId || 'familia_brentano_nutritrack';
+
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(saved.config);
+      } else {
+        // Caso tenha trocado a config em tempo de execução
+        firebase.app().delete().then(() => {
+          firebase.initializeApp(saved.config);
+          attachFirestoreListener();
+        });
+        return;
+      }
+      attachFirestoreListener();
+    } catch (err) {
+      console.error('Erro ao iniciar Firebase:', err);
+      updateSyncBadge('error', 'Configuração Firebase inválida');
+    }
+  }
+
+  function attachFirestoreListener() {
+    firestoreDb = firebase.firestore();
+    try {
+      firestoreDb.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    } catch (e) {}
+    if (firestoreUnsubscribe) firestoreUnsubscribe();
+
+    updateSyncBadge('syncing', 'Conectando ao Firestore...');
+
+    const docRef = firestoreDb.collection(FIREBASE_COLLECTION).doc(fbDocId);
+
+    // 1. Verifica se já existe estado na nuvem ao abrir
+    docRef.get().then(snapshot => {
+      if (snapshot.exists) {
+        const remote = snapshot.data();
+        if (remote && remote.profiles) {
+          isApplyingRemoteUpdate = true;
+          appData = remote;
+                    renderDashboard();
+          isApplyingRemoteUpdate = false;
+        }
+      } else {
+        // Primeiro acesso: envia o estado inicial para a nuvem
+        docRef.set(appData);
+      }
+      updateSyncBadge('online', 'Firestore Sincronizado ✓');
+    }).catch(err => {
+      console.error('Falha de leitura Firestore:', err);
+      if (err && (err.code === 'permission-denied' || String(err).includes('permission-denied'))) {
+        updateSyncBadge('error', 'Permissão negada no Firestore (Regras)');
+      } else {
+        updateSyncBadge('error', 'Erro de permissão Firestore');
+      }
+    });
+
+    // 2. Escuta alterações em tempo real vindas de OUTROS navegadores/celulares
+    firestoreUnsubscribe = docRef.onSnapshot(snapshot => {
+      if (!snapshot.exists) return;
+      if (snapshot.metadata.hasPendingWrites) return; // Ignora eco local
+
+      const remote = snapshot.data();
+      if (remote && remote.profiles) {
+        isApplyingRemoteUpdate = true;
+        // Mantém a aba/perfil visualizado se existir
+        const currentSelected = appData.activeProfile;
+        appData = remote;
+        if (appData.profiles[currentSelected]) {
+          appData.activeProfile = currentSelected;
+        }
+                renderDashboard();
+        isApplyingRemoteUpdate = false;
+        updateSyncBadge('online', 'Atualizado da Nuvem ✓');
+      }
+    }, err => {
+      console.error('Erro no listener Firestore:', err);
+      updateSyncBadge('error', 'Desconectado do Firestore');
+    });
+  }
+
+  function forceCloudPull() {
+    if (!firestoreDb) {
+      alert('Conecte suas chaves do Firebase primeiro.');
+      openFirebaseConfigModal();
+      return;
+    }
+    updateSyncBadge('syncing', 'Buscando dados da nuvem...');
+    firestoreDb.collection(FIREBASE_COLLECTION).doc(fbDocId).get().then(snapshot => {
+      if (snapshot.exists) {
+        isApplyingRemoteUpdate = true;
+        const currentSelected = appData.activeProfile;
+        appData = snapshot.data();
+        if (appData.profiles[currentSelected]) appData.activeProfile = currentSelected;
+                renderDashboard();
+        isApplyingRemoteUpdate = false;
+        updateSyncBadge('online', 'Sincronizado da Nuvem ✓');
+        closeModal('settings-modal');
+      }
+    });
+  }
+
+  function openFirebaseConfigModal() {
+    const saved = getStoredFirebaseConfig();
+    if (saved && saved.config) {
+      document.getElementById('fb-config-input').value = JSON.stringify(saved.config, null, 2);
+      document.getElementById('fb-doc-id').value = saved.docId || 'familia_brentano_nutritrack';
+    }
+    document.getElementById('fb-test-feedback').textContent = '';
+    document.getElementById('firebase-modal').classList.add('open');
+  }
+
+  // Parser tolerante: aceita JSON puro OU código copiado direto do console Firebase (com const firebaseConfig = { ... };)
+  function parseFirebaseConfigText(rawText) {
+    let cleaned = rawText.trim();
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+    // Converte chaves sem aspas (formato JS object) para JSON válido
+    cleaned = cleaned.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":');
+    // Troca aspas simples por duplas
+    cleaned = cleaned.replace(/'/g, '"');
+    // Remove vírgula sobrando antes de fechar chave
+    cleaned = cleaned.replace(/,\s*}/g, '}');
+    return JSON.parse(cleaned);
+  }
+
+  function saveFirebaseConfig() {
+    const rawText = document.getElementById('fb-config-input').value;
+    const docId = document.getElementById('fb-doc-id').value.trim() || 'familia_brentano_nutritrack';
+    const feedback = document.getElementById('fb-test-feedback');
+
+    try {
+      const parsedConfig = parseFirebaseConfigText(rawText);
+      if (!parsedConfig.apiKey || !parsedConfig.projectId) {
+        throw new Error('Campos apiKey e projectId são obrigatórios.');
+      }
+
+      localStorage.setItem(FB_CONFIG_STORAGE_KEY, JSON.stringify({ config: parsedConfig, docId }));
+      feedback.style.color = 'var(--primary)';
+      feedback.textContent = 'Configuração válida! Conectando ao Firestore...';
+
+      setTimeout(() => {
+        closeModal('firebase-modal');
+        initFirebaseSync();
+      }, 600);
+    } catch (e) {
+      feedback.style.color = 'var(--accent-rose)';
+      feedback.textContent = 'Erro ao ler configuração: verifique se colou o bloco { apiKey: ..., projectId: ... } corretamente.';
+    }
+  }
+
+  function disconnectFirebase() {
+    localStorage.removeItem(FB_CONFIG_STORAGE_KEY);
+    if (firestoreUnsubscribe) firestoreUnsubscribe();
+    firestoreDb = null;
+    closeModal('firebase-modal');
+    updateSyncBadge('offline', 'Modo Local (Desconectado)');
+  }
+
+  // ============================================================================
+  // MOTOR NUTRICIONAL, EQUIVALÊNCIAS, CASCATA E CRUD
+  // ============================================================================
   function getAllFoods() {
     return [...appData.customFoods, ...BASE_TACO_DB];
   }
@@ -1711,9 +2030,6 @@
     }
   }
 
-  // ==========================================
-  // GESTÃO DE USUÁRIOS (CRIAR, TROCAR, EXCLUIR)
-  // ==========================================
   function renderProfilePills() {
     const bar = document.getElementById('profile-switcher-bar');
     const keys = Object.keys(appData.profiles);
@@ -1791,9 +2107,6 @@
     }
   }
 
-  // ==========================================
-  // CADASTRO MANUAL DE ALIMENTOS NA TABELA TACO
-  // ==========================================
   function openCustomFoodModal() {
     document.getElementById('cf-name').value = '';
     document.getElementById('cf-cat').value = 'paes_massas';
@@ -1855,9 +2168,6 @@
     }
   }
 
-  // ==========================================
-  // RENDERIZAÇÃO PRINCIPAL DO DASHBOARD
-  // ==========================================
   function renderDashboard() {
     renderProfilePills();
     const profile = appData.profiles[appData.activeProfile];
@@ -1969,7 +2279,6 @@
     renderDashboard();
   }
 
-  // MODAL DE SUBSTITUIÇÃO / EDIÇÃO NO DIÁRIO
   function openDailyEditModal(mIdx, iIdx) {
     editingDailyTarget = { mIdx, iIdx };
     const profile = appData.profiles[appData.activeProfile];
@@ -2084,7 +2393,6 @@
     renderDashboard();
   }
 
-  // REFEIÇÃO EXTRA APENAS NO DIÁRIO DE HOJE
   function openDailyExtraMealModal() {
     const select = document.getElementById('daily-extra-food');
     select.innerHTML = getAllFoods().map(f =>
@@ -2126,9 +2434,6 @@
     renderDashboard();
   }
 
-  // ==========================================
-  // EDITOR DO PLANO BASE
-  // ==========================================
   function renderBasePlanEditor() {
     const profile = appData.profiles[appData.activeProfile];
     profile.baseMeals = sortMealsByTime(profile.baseMeals);
@@ -2447,8 +2752,8 @@
 
   function factoryReset() {
     if (confirm('Isso restaurará todos os perfis, planos e alimentos personalizados para os valores originais. Continuar?')) {
-      localStorage.removeItem(STORAGE_KEY);
-      appData = loadAppData();
+      appData = createDefaultAppData();
+      saveAppData();
       closeModal('settings-modal');
       renderDashboard();
     }
@@ -2485,7 +2790,9 @@
     closeModal('settings-modal');
   }
 
+  // INICIALIZA DASHBOARD E CONECTA AO FIREBASE FIRESTORE
   renderDashboard();
+  initFirebaseSync();
 </script>
 </body>
 </html>
