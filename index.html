@@ -1139,6 +1139,31 @@
   </div>
 </div>
 
+<!-- BOTTOM SHEET 1C: ALIMENTO AVULSO NA REFEIÇÃO DE HOJE -->
+<div class="modal-backdrop" id="loose-item-modal" onclick="closeModalOnBackdrop(event, 'loose-item-modal')">
+  <div class="bottom-sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title">Adicionar Alimento Avulso</h3>
+    <p class="sheet-subtitle" id="loose-item-subtitle">Item extra apenas nesta refeição de hoje</p>
+
+    <div class="form-group">
+      <label class="form-label">Alimento</label>
+      <input type="text" class="form-input" id="loose-item-search" placeholder="Digite para filtrar..." oninput="filterFoodSelect('loose-item-search', 'loose-item-food')" style="margin-bottom: 8px;">
+      <select class="form-select" id="loose-item-food" size="5"></select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Quantidade (gramas)</label>
+      <input type="number" class="form-input" id="loose-item-grams" value="50">
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn-ghost" onclick="closeModal('loose-item-modal')">Cancelar</button>
+      <button class="btn-primary" onclick="saveLooseItem()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
 <!-- BOTTOM SHEET 1B: ADICIONAR REFEIÇÃO EXTRA APENAS NO DIÁRIO DE HOJE -->
 <div class="modal-backdrop" id="daily-extra-meal-modal" onclick="closeModalOnBackdrop(event, 'daily-extra-meal-modal')">
   <div class="bottom-sheet">
@@ -1159,7 +1184,8 @@
 
     <div class="form-group">
       <label class="form-label">Alimento Principal</label>
-      <select class="form-select" id="daily-extra-food"></select>
+      <input type="text" class="form-input" id="daily-extra-search" placeholder="Digite para filtrar..." oninput="filterFoodSelect('daily-extra-search', 'daily-extra-food')" style="margin-bottom: 8px;">
+      <select class="form-select" id="daily-extra-food" size="5"></select>
     </div>
 
     <div class="form-group">
@@ -2224,7 +2250,9 @@
         mealKcal += m.kcal;
 
         let tagHtml = '';
-        if (it.foodId !== it.prescribedFoodId) {
+        if (it.isLoose) {
+          tagHtml = `<span class="manual-tag">＋ Avulso</span>`;
+        } else if (it.foodId !== it.prescribedFoodId) {
           tagHtml = `<span class="manual-tag">⇄ Substituído</span>`;
         } else if (it.manualOverride) {
           tagHtml = `<span class="manual-tag">✎ Editado hoje</span>`;
@@ -2244,6 +2272,7 @@
             </div>
             <div class="food-action-hint">
               <span class="grams-pill">${it.grams}g</span>
+              <button type="button" aria-label="Excluir item" onclick="event.stopPropagation(); removeDailyItem(${mIdx}, ${iIdx})" style="background:none;border:none;color:var(--text-muted);font-size:18px;padding:4px 8px;cursor:pointer;">🗑</button>
               <span class="edit-chevron">›</span>
             </div>
           </div>
@@ -2264,7 +2293,10 @@
             <span class="meal-kcal">${mealKcal} kcal</span>
           </div>
           <div class="food-list">${itemsHtml}</div>
-          <div class="meal-footer">${btnHtml}</div>
+          <div class="meal-footer">
+            <button class="btn-add-dashed" onclick="openLooseItemModal(${mIdx})">+ Alimento Avulso</button>
+            ${btnHtml}
+          </div>
         </article>
       `;
     });
@@ -2394,10 +2426,8 @@
   }
 
   function openDailyExtraMealModal() {
-    const select = document.getElementById('daily-extra-food');
-    select.innerHTML = getAllFoods().map(f =>
-      `<option value="${f.id}">${f.isCustom ? '⭐ ' : ''}${f.name} (${f.kcal} kcal/100g)</option>`
-    ).join('');
+    document.getElementById('daily-extra-search').value = '';
+    filterFoodSelect('daily-extra-search', 'daily-extra-food');
     document.getElementById('daily-extra-time').value = '09:30';
     document.getElementById('daily-extra-name').value = 'Lanche da Manhã';
     document.getElementById('daily-extra-grams').value = 100;
@@ -2431,6 +2461,73 @@
     profile.dailyMeals = sortMealsByTime(profile.dailyMeals);
     saveAppData();
     closeModal('daily-extra-meal-modal');
+    renderDashboard();
+  }
+
+  let looseItemTargetMeal = null;
+
+  function normalizeSearchText(t) {
+    return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
+  function filterFoodSelect(searchId, selectId) {
+    const q = normalizeSearchText(document.getElementById(searchId).value.trim());
+    const select = document.getElementById(selectId);
+    const current = select.value;
+    const list = getAllFoods().filter(f => normalizeSearchText(f.name).includes(q));
+    if (list.length === 0) {
+      select.innerHTML = '<option value="">Nenhum alimento encontrado</option>';
+      return;
+    }
+    select.innerHTML = list.map(f =>
+      `<option value="${f.id}">${f.isCustom ? '⭐ ' : ''}${f.name} (${f.kcal} kcal/100g)</option>`
+    ).join('');
+    if (list.some(f => f.id === current)) select.value = current;
+  }
+
+  function removeDailyItem(mIdx, iIdx) {
+    const profile = appData.profiles[appData.activeProfile];
+    const meal = profile.dailyMeals[mIdx];
+    const item = meal.items[iIdx];
+    if (!item) return;
+    if (!confirm(`Excluir "${getFood(item.foodId).name}" de ${meal.name} hoje?`)) return;
+    meal.items.splice(iIdx, 1);
+    saveAppData();
+    renderDashboard();
+  }
+
+  function openLooseItemModal(mIdx) {
+    looseItemTargetMeal = mIdx;
+    const profile = appData.profiles[appData.activeProfile];
+    const meal = profile.dailyMeals[mIdx];
+    document.getElementById('loose-item-subtitle').textContent = `Será adicionado em: ${meal.time} • ${meal.name}`;
+    document.getElementById('loose-item-search').value = '';
+    filterFoodSelect('loose-item-search', 'loose-item-food');
+    document.getElementById('loose-item-grams').value = 50;
+    document.getElementById('loose-item-modal').classList.add('open');
+  }
+
+  function saveLooseItem() {
+    if (looseItemTargetMeal === null) return;
+    const foodId = document.getElementById('loose-item-food').value;
+    if (!foodId) { alert('Selecione um alimento da lista.'); return; }
+    const grams = Math.max(5, Number(document.getElementById('loose-item-grams').value) || 50);
+
+    const profile = appData.profiles[appData.activeProfile];
+    profile.dailyMeals[looseItemTargetMeal].items.push({
+      foodId,
+      grams,
+      prescribedFoodId: foodId,
+      prescribedGrams: 0,
+      manualOverride: true,
+      autoAdjusted: false,
+      intraAdjusted: false,
+      isLoose: true
+    });
+
+    saveAppData();
+    closeModal('loose-item-modal');
+    looseItemTargetMeal = null;
     renderDashboard();
   }
 
