@@ -822,7 +822,7 @@
         <div class="brand-title">NutriTrack Pro</div>
         <div class="brand-sub" id="sync-status-badge" onclick="openFirebaseConfigModal()">
           <span class="sync-dot"></span>
-          <span id="sync-status-text">Conectando ao Firestore...</span>
+          <span id="sync-status-text">Firestore Ativo</span>
         </div>
       </div>
     </div>
@@ -1139,31 +1139,6 @@
   </div>
 </div>
 
-<!-- BOTTOM SHEET 1C: ALIMENTO AVULSO NA REFEIÇÃO DE HOJE -->
-<div class="modal-backdrop" id="loose-item-modal" onclick="closeModalOnBackdrop(event, 'loose-item-modal')">
-  <div class="bottom-sheet">
-    <div class="sheet-handle"></div>
-    <h3 class="sheet-title">Adicionar Alimento Avulso</h3>
-    <p class="sheet-subtitle" id="loose-item-subtitle">Item extra apenas nesta refeição de hoje</p>
-
-    <div class="form-group">
-      <label class="form-label">Alimento</label>
-      <input type="text" class="form-input" id="loose-item-search" placeholder="Digite para filtrar..." oninput="filterFoodSelect('loose-item-search', 'loose-item-food')" style="margin-bottom: 8px;">
-      <select class="form-select" id="loose-item-food" size="5"></select>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Quantidade (gramas)</label>
-      <input type="number" class="form-input" id="loose-item-grams" value="50">
-    </div>
-
-    <div class="sheet-actions">
-      <button class="btn-ghost" onclick="closeModal('loose-item-modal')">Cancelar</button>
-      <button class="btn-primary" onclick="saveLooseItem()">Adicionar</button>
-    </div>
-  </div>
-</div>
-
 <!-- BOTTOM SHEET 1B: ADICIONAR REFEIÇÃO EXTRA APENAS NO DIÁRIO DE HOJE -->
 <div class="modal-backdrop" id="daily-extra-meal-modal" onclick="closeModalOnBackdrop(event, 'daily-extra-meal-modal')">
   <div class="bottom-sheet">
@@ -1184,8 +1159,7 @@
 
     <div class="form-group">
       <label class="form-label">Alimento Principal</label>
-      <input type="text" class="form-input" id="daily-extra-search" placeholder="Digite para filtrar..." oninput="filterFoodSelect('daily-extra-search', 'daily-extra-food')" style="margin-bottom: 8px;">
-      <select class="form-select" id="daily-extra-food" size="5"></select>
+      <select class="form-select" id="daily-extra-food"></select>
     </div>
 
     <div class="form-group">
@@ -1736,7 +1710,7 @@
     }).catch(err => {
       console.error('Falha de leitura Firestore:', err);
       if (err && (err.code === 'permission-denied' || String(err).includes('permission-denied'))) {
-        updateSyncBadge('error', 'Permissão negada no Firestore (Regras)');
+        updateSyncBadge('error', 'Permissão negada: verifique chaves/projeto Firebase');
       } else {
         updateSyncBadge('error', 'Erro de permissão Firestore');
       }
@@ -1748,7 +1722,7 @@
       if (snapshot.metadata.hasPendingWrites) return; // Ignora eco local
 
       const remote = snapshot.data();
-      if (remote && remote.profiles) {
+      if (remote && remote.profiles && (!appData.updatedAt || (remote.updatedAt && remote.updatedAt > appData.updatedAt))) {
         isApplyingRemoteUpdate = true;
         // Mantém a aba/perfil visualizado se existir
         const currentSelected = appData.activeProfile;
@@ -1922,85 +1896,69 @@
     const profile = appData.profiles[appData.activeProfile];
     const badge = document.getElementById('cascade-status');
 
+    // 1. Restaura para a prescrição base todos os itens que não foram editados manualmente nem são avulsos sem prescrição
     profile.dailyMeals.forEach(meal => {
       meal.items.forEach(it => {
-        if (!it.manualOverride) {
+        if (!it.manualOverride && !it.isAvulso) {
           it.grams = it.prescribedGrams;
+          it.autoAdjusted = false;
+          it.intraAdjusted = false;
+        } else if (it.isAvulso && !it.manualOverride) {
           it.autoAdjusted = false;
           it.intraAdjusted = false;
         }
       });
     });
 
-    let surplusFromDoneKcal = 0;
-    profile.dailyMeals.forEach(meal => {
-      if (meal.done) {
-        meal.items.forEach(it => {
-          const actual = calcItemMacros(it.foodId, it.grams).kcal;
-          const prescribed = it.prescribedGrams > 0
-            ? calcItemMacros(it.prescribedFoodId, it.prescribedGrams).kcal
-            : 0;
-          surplusFromDoneKcal += (actual - prescribed);
-        });
-      }
-    });
-
-    const pendingMeals = profile.dailyMeals.filter(m => !m.done);
-
-    if (Math.abs(surplusFromDoneKcal) > 20 && pendingMeals.length > 0) {
-      const firstPending = pendingMeals[0];
-      const cascadeTarget = firstPending.items.find(it => {
-        const grp = getIntraMealGroup(getFood(it.foodId).cat);
-        return !it.manualOverride && grp === 'carb_energy';
-      });
-
-      if (cascadeTarget) {
-        const food = getFood(cascadeTarget.foodId);
-        const kcalPerGram = food.kcal / 100;
-        if (kcalPerGram > 0) {
-          const deltaGrams = Math.round(surplusFromDoneKcal / kcalPerGram);
-          cascadeTarget.grams = Math.max(10, cascadeTarget.grams - deltaGrams);
-          cascadeTarget.autoAdjusted = true;
-        }
-      }
-    }
-
+    // 2. REAJUSTE INTRARREFEIÇÃO (em refeições ainda pendentes / não registradas)
+    // Quando um item é editado manualmente ou um item avulso é adicionado numa refeição pendente,
+    // os itens irmãos compatíveis (não editados manualmente) da MESMA refeição são ajustados
+    // para absorver parte do excedente/déficit de carboidrato ou proteína daquela refeição.
     let totalIntraAdjustments = 0;
 
-    pendingMeals.forEach(meal => {
-      const groupManualDelta = {
+    profile.dailyMeals.forEach(meal => {
+      if (meal.done) return;
+
+      const groupDelta = {
         carb_energy: { carb: 0, kcal: 0 },
         protein_core: { prot: 0, kcal: 0 },
         fat_core: { fat: 0, kcal: 0 }
       };
 
-      let hasManualChangeInMeal = false;
+      let hasTriggerInMeal = false;
 
       meal.items.forEach(it => {
-        if (it.manualOverride) {
-          hasManualChangeInMeal = true;
+        if (it.manualOverride || it.isAvulso) {
           const food = getFood(it.foodId);
           const grp = getIntraMealGroup(food.cat);
           const actual = calcItemMacros(it.foodId, it.grams);
-          const presc = it.prescribedGrams > 0
+          const presc = (!it.isAvulso && it.prescribedGrams > 0)
             ? calcItemMacros(it.prescribedFoodId, it.prescribedGrams)
             : { kcal: 0, p: 0, c: 0, g: 0 };
 
-          if (groupManualDelta[grp]) {
-            groupManualDelta[grp].carb += (actual.c - presc.c);
-            groupManualDelta[grp].prot += (actual.p - presc.p);
-            groupManualDelta[grp].fat  += (actual.g - presc.g);
-            groupManualDelta[grp].kcal += (actual.kcal - presc.kcal);
+          const dC = actual.c - presc.c;
+          const dP = actual.p - presc.p;
+          const dG = actual.g - presc.g;
+          const dK = actual.kcal - presc.kcal;
+
+          if (Math.abs(dC) > 0.5 || Math.abs(dP) > 0.5 || Math.abs(dK) > 10) {
+            hasTriggerInMeal = true;
+            if (groupDelta[grp]) {
+              groupDelta[grp].carb += dC;
+              groupDelta[grp].prot += dP;
+              groupDelta[grp].fat  += dG;
+              groupDelta[grp].kcal += dK;
+            }
           }
         }
       });
 
-      if (!hasManualChangeInMeal) return;
+      if (!hasTriggerInMeal) return;
 
-      Object.keys(groupManualDelta).forEach(grp => {
-        const delta = groupManualDelta[grp];
+      Object.keys(groupDelta).forEach(grp => {
+        const delta = groupDelta[grp];
         const siblings = meal.items.filter(it =>
-          !it.manualOverride && getIntraMealGroup(getFood(it.foodId).cat) === grp
+          !it.manualOverride && !it.isAvulso && getIntraMealGroup(getFood(it.foodId).cat) === grp
         );
 
         if (siblings.length === 0) return;
@@ -2015,7 +1973,7 @@
                 const share = sibCarbPerGram / totalSiblingCarbsPerGram;
                 const carbToOffset = delta.carb * share;
                 const gramsDelta = Math.round(carbToOffset / sibCarbPerGram);
-                sib.grams = Math.max(5, sib.grams - gramsDelta);
+                sib.grams = Math.max(10, sib.grams - gramsDelta);
                 sib.intraAdjusted = true;
                 totalIntraAdjustments++;
               }
@@ -2031,7 +1989,7 @@
                 const share = sibProtPerGram / totalSiblingProtPerGram;
                 const protToOffset = delta.prot * share;
                 const gramsDelta = Math.round(protToOffset / sibProtPerGram);
-                sib.grams = Math.max(5, sib.grams - gramsDelta);
+                sib.grams = Math.max(10, sib.grams - gramsDelta);
                 sib.intraAdjusted = true;
                 totalIntraAdjustments++;
               }
@@ -2041,14 +1999,97 @@
       });
     });
 
-    if (Math.abs(surplusFromDoneKcal) > 20 || totalIntraAdjustments > 0) {
+    // 3. COMPENSAÇÃO EM CASCATA NAS REFEIÇÕES SEGUINTES (após refeições registradas)
+    // Soma o saldo real (calorias, carboidratos e proteínas) de todas as refeições JÁ REGISTRADAS (meal.done === true),
+    // incluindo itens avulsos e refeições extras registradas, e redistribui nas refeições pendentes seguintes.
+    let doneSurplusKcal = 0;
+    let doneSurplusCarb = 0;
+    let doneSurplusProt = 0;
+
+    profile.dailyMeals.forEach(meal => {
+      if (meal.done) {
+        meal.items.forEach(it => {
+          const actual = calcItemMacros(it.foodId, it.grams);
+          const prescribed = (!it.isAvulso && it.prescribedGrams > 0)
+            ? calcItemMacros(it.prescribedFoodId, it.prescribedGrams)
+            : { kcal: 0, p: 0, c: 0, g: 0 };
+
+          doneSurplusKcal += (actual.kcal - prescribed.kcal);
+          doneSurplusCarb += (actual.c - prescribed.c);
+          doneSurplusProt += (actual.p - prescribed.p);
+        });
+      }
+    });
+
+    const pendingMeals = profile.dailyMeals.filter(m => !m.done);
+    let cascadeAppliedCount = 0;
+
+    if (pendingMeals.length > 0 && (Math.abs(doneSurplusKcal) > 20 || Math.abs(doneSurplusCarb) > 3 || Math.abs(doneSurplusProt) > 3)) {
+      // Ajusta carboidratos/energia nas refeições pendentes
+      if (Math.abs(doneSurplusCarb) >= 3 || Math.abs(doneSurplusKcal) > 20) {
+        let remainingCarbToOffset = doneSurplusCarb;
+        for (let m of pendingMeals) {
+          const carbTargets = m.items.filter(it => {
+            const grp = getIntraMealGroup(getFood(it.foodId).cat);
+            return !it.manualOverride && !it.isAvulso && grp === 'carb_energy';
+          });
+          if (carbTargets.length > 0) {
+            const target = carbTargets[0];
+            const food = getFood(target.foodId);
+            const carbPerGram = food.c / 100;
+            const kcalPerGram = food.kcal / 100;
+
+            if (carbPerGram > 0 && Math.abs(remainingCarbToOffset) >= 3) {
+              const gramsDelta = Math.round(remainingCarbToOffset / carbPerGram);
+              const prevGrams = target.grams;
+              target.grams = Math.max(10, target.grams - gramsDelta);
+              const actualDeltaGrams = prevGrams - target.grams;
+              remainingCarbToOffset -= actualDeltaGrams * carbPerGram;
+              target.autoAdjusted = true;
+              cascadeAppliedCount++;
+              break;
+            } else if (kcalPerGram > 0 && Math.abs(doneSurplusKcal) > 20) {
+              const gramsDelta = Math.round(doneSurplusKcal / kcalPerGram);
+              target.grams = Math.max(10, target.grams - gramsDelta);
+              target.autoAdjusted = true;
+              cascadeAppliedCount++;
+              break;
+            }
+          }
+        }
+      }
+
+      // Ajusta proteínas nas refeições pendentes quando houver diferença relevante de proteína registrada
+      if (Math.abs(doneSurplusProt) >= 3) {
+        for (let m of pendingMeals) {
+          const protTargets = m.items.filter(it => {
+            const grp = getIntraMealGroup(getFood(it.foodId).cat);
+            return !it.manualOverride && !it.isAvulso && grp === 'protein_core';
+          });
+          if (protTargets.length > 0) {
+            const target = protTargets[0];
+            const food = getFood(target.foodId);
+            const protPerGram = food.p / 100;
+            if (protPerGram > 0) {
+              const gramsDelta = Math.round(doneSurplusProt / protPerGram);
+              target.grams = Math.max(10, target.grams - gramsDelta);
+              target.autoAdjusted = true;
+              cascadeAppliedCount++;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (cascadeAppliedCount > 0 || totalIntraAdjustments > 0) {
       badge.className = 'cascade-badge warning';
-      if (totalIntraAdjustments > 0 && Math.abs(surplusFromDoneKcal) > 20) {
-        badge.innerHTML = `↻ Cascata + Reajuste na refeição ativos`;
+      if (cascadeAppliedCount > 0 && totalIntraAdjustments > 0) {
+        badge.innerHTML = `↻ Cascata + Reajuste intra ativos`;
       } else if (totalIntraAdjustments > 0) {
         badge.innerHTML = `⇄ Reajuste intrarrefeição ativo`;
       } else {
-        badge.innerHTML = `↻ Cascata: ${surplusFromDoneKcal > 0 ? '+' : ''}${surplusFromDoneKcal} kcal`;
+        badge.innerHTML = `↻ Cascata: ${doneSurplusKcal > 0 ? '+' : ''}${doneSurplusKcal} kcal`;
       }
     } else {
       badge.className = 'cascade-badge';
@@ -2250,9 +2291,7 @@
         mealKcal += m.kcal;
 
         let tagHtml = '';
-        if (it.isLoose) {
-          tagHtml = `<span class="manual-tag">＋ Avulso</span>`;
-        } else if (it.foodId !== it.prescribedFoodId) {
+        if (it.foodId !== it.prescribedFoodId) {
           tagHtml = `<span class="manual-tag">⇄ Substituído</span>`;
         } else if (it.manualOverride) {
           tagHtml = `<span class="manual-tag">✎ Editado hoje</span>`;
@@ -2272,7 +2311,7 @@
             </div>
             <div class="food-action-hint">
               <span class="grams-pill">${it.grams}g</span>
-              <button type="button" aria-label="Excluir item" onclick="event.stopPropagation(); removeDailyItem(${mIdx}, ${iIdx})" style="background:none;border:none;color:var(--text-muted);font-size:18px;padding:4px 8px;cursor:pointer;">🗑</button>
+              <button type="button" aria-label="Excluir item" onclick="event.stopPropagation(); removeDailyItem(${mIdx}, ${iIdx})" style="background:none;border:none;color:var(--text-muted);font-size:17px;padding:4px 6px;cursor:pointer;">🗑</button>
               <span class="edit-chevron">›</span>
             </div>
           </div>
@@ -2293,15 +2332,23 @@
             <span class="meal-kcal">${mealKcal} kcal</span>
           </div>
           <div class="food-list">${itemsHtml}</div>
-          <div class="meal-footer">
-            <button class="btn-add-dashed" onclick="openLooseItemModal(${mIdx})">+ Alimento Avulso</button>
-            ${btnHtml}
-          </div>
+          <div class="meal-footer">${btnHtml}</div>
         </article>
       `;
     });
 
     renderBasePlanEditor();
+  }
+
+  function removeDailyItem(mIdx, iIdx) {
+    const profile = appData.profiles[appData.activeProfile];
+    const meal = profile.dailyMeals[mIdx];
+    const item = meal.items[iIdx];
+    if (!item) return;
+    if (!confirm(`Excluir "${getFood(item.foodId).name}" de ${meal.name} hoje?`)) return;
+    meal.items.splice(iIdx, 1);
+    saveAppData();
+    renderDashboard();
   }
 
   function toggleMealDone(mIdx) {
@@ -2426,8 +2473,10 @@
   }
 
   function openDailyExtraMealModal() {
-    document.getElementById('daily-extra-search').value = '';
-    filterFoodSelect('daily-extra-search', 'daily-extra-food');
+    const select = document.getElementById('daily-extra-food');
+    select.innerHTML = getAllFoods().map(f =>
+      `<option value="${f.id}">${f.isCustom ? '⭐ ' : ''}${f.name} (${f.kcal} kcal/100g)</option>`
+    ).join('');
     document.getElementById('daily-extra-time').value = '09:30';
     document.getElementById('daily-extra-name').value = 'Lanche da Manhã';
     document.getElementById('daily-extra-grams').value = 100;
@@ -2461,73 +2510,6 @@
     profile.dailyMeals = sortMealsByTime(profile.dailyMeals);
     saveAppData();
     closeModal('daily-extra-meal-modal');
-    renderDashboard();
-  }
-
-  let looseItemTargetMeal = null;
-
-  function normalizeSearchText(t) {
-    return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  }
-
-  function filterFoodSelect(searchId, selectId) {
-    const q = normalizeSearchText(document.getElementById(searchId).value.trim());
-    const select = document.getElementById(selectId);
-    const current = select.value;
-    const list = getAllFoods().filter(f => normalizeSearchText(f.name).includes(q));
-    if (list.length === 0) {
-      select.innerHTML = '<option value="">Nenhum alimento encontrado</option>';
-      return;
-    }
-    select.innerHTML = list.map(f =>
-      `<option value="${f.id}">${f.isCustom ? '⭐ ' : ''}${f.name} (${f.kcal} kcal/100g)</option>`
-    ).join('');
-    if (list.some(f => f.id === current)) select.value = current;
-  }
-
-  function removeDailyItem(mIdx, iIdx) {
-    const profile = appData.profiles[appData.activeProfile];
-    const meal = profile.dailyMeals[mIdx];
-    const item = meal.items[iIdx];
-    if (!item) return;
-    if (!confirm(`Excluir "${getFood(item.foodId).name}" de ${meal.name} hoje?`)) return;
-    meal.items.splice(iIdx, 1);
-    saveAppData();
-    renderDashboard();
-  }
-
-  function openLooseItemModal(mIdx) {
-    looseItemTargetMeal = mIdx;
-    const profile = appData.profiles[appData.activeProfile];
-    const meal = profile.dailyMeals[mIdx];
-    document.getElementById('loose-item-subtitle').textContent = `Será adicionado em: ${meal.time} • ${meal.name}`;
-    document.getElementById('loose-item-search').value = '';
-    filterFoodSelect('loose-item-search', 'loose-item-food');
-    document.getElementById('loose-item-grams').value = 50;
-    document.getElementById('loose-item-modal').classList.add('open');
-  }
-
-  function saveLooseItem() {
-    if (looseItemTargetMeal === null) return;
-    const foodId = document.getElementById('loose-item-food').value;
-    if (!foodId) { alert('Selecione um alimento da lista.'); return; }
-    const grams = Math.max(5, Number(document.getElementById('loose-item-grams').value) || 50);
-
-    const profile = appData.profiles[appData.activeProfile];
-    profile.dailyMeals[looseItemTargetMeal].items.push({
-      foodId,
-      grams,
-      prescribedFoodId: foodId,
-      prescribedGrams: 0,
-      manualOverride: true,
-      autoAdjusted: false,
-      intraAdjusted: false,
-      isLoose: true
-    });
-
-    saveAppData();
-    closeModal('loose-item-modal');
-    looseItemTargetMeal = null;
     renderDashboard();
   }
 
