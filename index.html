@@ -402,7 +402,181 @@
     }
 
     .meal-card.completed {
-      border-color: rgba(16, 185, 129, 0.4);
+      border-color: rgba(16, 185, 129, 0.55);
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, var(--surface) 100%);
+    }
+
+    body.light-theme .meal-card.completed {
+      background: linear-gradient(180deg, rgba(5, 150, 105, 0.07) 0%, var(--surface) 100%);
+    }
+
+    .done-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-soft);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 2px 7px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .meal-summary-bar {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      background: var(--surface-elevated);
+      border-left: 3px solid var(--primary);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .meal-summary-label {
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .meal-summary-values {
+      font-weight: 600;
+      color: var(--primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .last-meal-tracker {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .last-meal-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .last-meal-row.daily-proj {
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .macro-pill-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-deficit {
+      background: rgba(245, 158, 11, 0.16);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .status-ok {
+      background: rgba(16, 185, 129, 0.16);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .status-over {
+      background: rgba(244, 63, 94, 0.16);
+      color: #f43f5e;
+      border: 1px solid rgba(244, 63, 94, 0.4);
+    }
+
+    .modal-daily-sim {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      font-size: 11.5px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .food-row-wrapper {
+      background: var(--surface-elevated);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .food-row-wrapper .food-row {
+      border-radius: 0;
+    }
+
+    .inline-quick-adjust {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px 10px;
+      border-top: 1px dashed var(--border);
+      background: rgba(0, 0, 0, 0.12);
+    }
+
+    body.light-theme .inline-quick-adjust {
+      background: rgba(15, 23, 42, 0.03);
+    }
+
+    .inline-step-btn {
+      width: 30px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-main);
+      font-size: 15px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .inline-step-btn:active {
+      background: var(--primary-soft);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .inline-range-slider {
+      flex: 1;
+      accent-color: var(--primary);
+      height: 6px;
+      cursor: pointer;
+    }
+
+    .macro-conflict-banner {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: var(--accent-amber);
+      font-size: 11.5px;
+      font-weight: 600;
+      line-height: 1.45;
+      display: none;
     }
 
     .meal-top {
@@ -809,6 +983,56 @@
       margin-bottom: 8px;
       gap: 10px;
     }
+
+    .finish-day-box {
+      margin-top: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .finish-day-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .finish-day-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .history-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .history-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+    }
+
+    .history-date {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .history-macros {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -895,6 +1119,7 @@
           </div>
         </div>
       </div>
+      <div class="macro-conflict-banner" id="macro-conflict-banner"></div>
     </section>
 
     <div class="section-header">
@@ -954,7 +1179,17 @@
 
     <div id="taco-list"></div>
   </section>
+  <!-- VIEW 4: HISTÓRICO DE DIAS FINALIZADOS -->
+  <section id="view-historico" class="tab-view">
+    <div class="section-header">
+      <h2 class="section-title" id="history-header-title">Histórico de Dias</h2>
+      <button class="btn-danger-ghost" style="padding: 6px 10px;" onclick="clearProfileHistory()">Limpar Histórico</button>
+    </div>
+    <div id="history-container"></div>
+  </section>
 </div>
+
+
 
 <!-- BOTTOM SHEET: CONFIGURAR FIREBASE FIRESTORE -->
 <div class="modal-backdrop" id="firebase-modal" onclick="closeModalOnBackdrop(event, 'firebase-modal')">
@@ -1135,6 +1370,7 @@
     </div>
 
     <div style="font-size: 12px; color: var(--primary); font-weight: 600;" id="modal-food-macros"></div>
+    <div class="modal-daily-sim" id="modal-daily-sim-box" style="display:none;"></div>
 
     <div class="sheet-actions" id="daily-edit-actions"></div>
   </div>
@@ -1344,6 +1580,10 @@
   <button class="nav-item" onclick="switchTab('taco', this)">
     <span class="nav-icon">🥗</span>
     <span>Tabela TACO</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('historico', this)">
+    <span class="nav-icon">🗂️</span>
+    <span>Histórico</span>
   </button>
 </nav>
 
@@ -6763,8 +7003,9 @@
   function applyFullCompensationEngine() {
     const profile = appData.profiles[appData.activeProfile];
     const badge = document.getElementById('cascade-status');
+    const conflictBanner = document.getElementById('macro-conflict-banner');
 
-    // 1. Restaura para a prescrição base todos os itens que não foram editados manualmente nem são avulsos sem prescrição
+    // 1. Restaura para a prescrição base todos os itens que não foram editados manualmente nem são avulsos
     profile.dailyMeals.forEach(meal => {
       meal.items.forEach(it => {
         if (!it.manualOverride && !it.isAvulso) {
@@ -6779,9 +7020,6 @@
     });
 
     // 2. REAJUSTE INTRARREFEIÇÃO (em refeições ainda pendentes / não registradas)
-    // Quando um item é editado manualmente ou um item avulso é adicionado numa refeição pendente,
-    // os itens irmãos compatíveis (não editados manualmente) da MESMA refeição são ajustados
-    // para absorver parte do excedente/déficit de carboidrato ou proteína daquela refeição.
     let totalIntraAdjustments = 0;
 
     profile.dailyMeals.forEach(meal => {
@@ -6867,86 +7105,144 @@
       });
     });
 
-    // 3. COMPENSAÇÃO EM CASCATA NAS REFEIÇÕES SEGUINTES (após refeições registradas)
-    // Soma o saldo real (calorias, carboidratos e proteínas) de todas as refeições JÁ REGISTRADAS (meal.done === true),
-    // incluindo itens avulsos e refeições extras registradas, e redistribui nas refeições pendentes seguintes.
-    let doneSurplusKcal = 0;
-    let doneSurplusCarb = 0;
-    let doneSurplusProt = 0;
+    // 3. COMPENSAÇÃO EM CASCATA NAS REFEIÇÕES SEGUINTES COM BASE NAS METAS DIÁRIAS
+    // Soma o que já foi efetivamente consumido nas refeições finalizadas (`meal.done === true`)
+    let doneConsumed = { kcal: 0, p: 0, c: 0, g: 0 };
+    let donePrescribed = { kcal: 0, p: 0, c: 0, g: 0 };
 
     profile.dailyMeals.forEach(meal => {
       if (meal.done) {
         meal.items.forEach(it => {
           const actual = calcItemMacros(it.foodId, it.grams);
-          const prescribed = (!it.isAvulso && it.prescribedGrams > 0)
+          const presc = (!it.isAvulso && it.prescribedGrams > 0)
             ? calcItemMacros(it.prescribedFoodId, it.prescribedGrams)
             : { kcal: 0, p: 0, c: 0, g: 0 };
 
-          doneSurplusKcal += (actual.kcal - prescribed.kcal);
-          doneSurplusCarb += (actual.c - prescribed.c);
-          doneSurplusProt += (actual.p - prescribed.p);
+          doneConsumed.kcal += actual.kcal;
+          doneConsumed.p += actual.p;
+          doneConsumed.c += actual.c;
+          doneConsumed.g += actual.g;
+
+          donePrescribed.kcal += presc.kcal;
+          donePrescribed.p += presc.p;
+          donePrescribed.c += presc.c;
+          donePrescribed.g += presc.g;
         });
       }
     });
 
+    const surplusFromDoneKcal = doneConsumed.kcal - donePrescribed.kcal;
     const pendingMeals = profile.dailyMeals.filter(m => !m.done);
     let cascadeAppliedCount = 0;
 
-    if (pendingMeals.length > 0 && (Math.abs(doneSurplusKcal) > 20 || Math.abs(doneSurplusCarb) > 3 || Math.abs(doneSurplusProt) > 3)) {
-      // Ajusta carboidratos/energia nas refeições pendentes
-      if (Math.abs(doneSurplusCarb) >= 3 || Math.abs(doneSurplusKcal) > 20) {
-        let remainingCarbToOffset = doneSurplusCarb;
-        for (let m of pendingMeals) {
-          const carbTargets = m.items.filter(it => {
-            const grp = getIntraMealGroup(getFood(it.foodId).cat);
-            return !it.manualOverride && !it.isAvulso && grp === 'carb_energy';
-          });
-          if (carbTargets.length > 0) {
-            const target = carbTargets[0];
-            const food = getFood(target.foodId);
-            const carbPerGram = food.c / 100;
-            const kcalPerGram = food.kcal / 100;
+    // Quanto ainda falta para atingir as metas diárias de Proteína e Carboidrato
+    const remainingTargetProt = Math.max(0, profile.goals.p - doneConsumed.p);
+    const remainingTargetCarb = Math.max(0, profile.goals.c - doneConsumed.c);
+    const remainingTargetKcal = Math.max(0, profile.goals.kcal - doneConsumed.kcal);
 
-            if (carbPerGram > 0 && Math.abs(remainingCarbToOffset) >= 3) {
-              const gramsDelta = Math.round(remainingCarbToOffset / carbPerGram);
-              const prevGrams = target.grams;
-              target.grams = Math.max(10, target.grams - gramsDelta);
-              const actualDeltaGrams = prevGrams - target.grams;
-              remainingCarbToOffset -= actualDeltaGrams * carbPerGram;
-              target.autoAdjusted = true;
-              cascadeAppliedCount++;
-              break;
-            } else if (kcalPerGram > 0 && Math.abs(doneSurplusKcal) > 20) {
-              const gramsDelta = Math.round(doneSurplusKcal / kcalPerGram);
-              target.grams = Math.max(10, target.grams - gramsDelta);
-              target.autoAdjusted = true;
-              cascadeAppliedCount++;
-              break;
-            }
+    if (pendingMeals.length > 0 && doneConsumed.kcal > 0) {
+      // Calcula o quanto os itens fixos/manuais/avulsos das refeições pendentes já entregam
+      let fixedPendingMacros = { kcal: 0, p: 0, c: 0 };
+      pendingMeals.forEach(m => {
+        m.items.forEach(it => {
+          if (it.manualOverride || it.isAvulso) {
+            const mac = calcItemMacros(it.foodId, it.grams);
+            fixedPendingMacros.kcal += mac.kcal;
+            fixedPendingMacros.p += mac.p;
+            fixedPendingMacros.c += mac.c;
           }
+        });
+      });
+
+      const carbAdjustableItems = [];
+      const protAdjustableItems = [];
+
+      pendingMeals.forEach(m => {
+        m.items.forEach(it => {
+          if (!it.manualOverride && !it.isAvulso) {
+            const grp = getIntraMealGroup(getFood(it.foodId).cat);
+            if (grp === 'carb_energy') carbAdjustableItems.push(it);
+            if (grp === 'protein_core') protAdjustableItems.push(it);
+          }
+        });
+      });
+
+      // Ajusta carboidratos nas refeições pendentes para mirar a meta diária de carboidratos
+      if (carbAdjustableItems.length > 0) {
+        const targetCarbNeeded = Math.max(0, remainingTargetCarb - fixedPendingMacros.c);
+        const totalCarbCap = carbAdjustableItems.reduce((sum, it) => {
+          const f = getFood(it.foodId);
+          return sum + (f.c / 100) * Math.max(10, it.prescribedGrams);
+        }, 0);
+
+        if (totalCarbCap > 0) {
+          const ratioC = Math.max(0.15, Math.min(1.6, targetCarbNeeded / totalCarbCap));
+          carbAdjustableItems.forEach(it => {
+            const nextG = Math.max(10, Math.round(it.prescribedGrams * ratioC));
+            if (nextG !== it.grams) {
+              it.grams = nextG;
+              it.autoAdjusted = true;
+              cascadeAppliedCount++;
+            }
+          });
         }
       }
 
-      // Ajusta proteínas nas refeições pendentes quando houver diferença relevante de proteína registrada
-      if (Math.abs(doneSurplusProt) >= 3) {
-        for (let m of pendingMeals) {
-          const protTargets = m.items.filter(it => {
-            const grp = getIntraMealGroup(getFood(it.foodId).cat);
-            return !it.manualOverride && !it.isAvulso && grp === 'protein_core';
-          });
-          if (protTargets.length > 0) {
-            const target = protTargets[0];
-            const food = getFood(target.foodId);
-            const protPerGram = food.p / 100;
-            if (protPerGram > 0) {
-              const gramsDelta = Math.round(doneSurplusProt / protPerGram);
-              target.grams = Math.max(10, target.grams - gramsDelta);
-              target.autoAdjusted = true;
+      // Ajusta proteínas nas refeições pendentes para mirar a meta diária de proteínas
+      if (protAdjustableItems.length > 0) {
+        const targetProtNeeded = Math.max(0, remainingTargetProt - fixedPendingMacros.p);
+        const totalProtCap = protAdjustableItems.reduce((sum, it) => {
+          const f = getFood(it.foodId);
+          return sum + (f.p / 100) * Math.max(10, it.prescribedGrams);
+        }, 0);
+
+        if (totalProtCap > 0) {
+          const ratioP = Math.max(0.2, Math.min(1.6, targetProtNeeded / totalProtCap));
+          protAdjustableItems.forEach(it => {
+            const nextG = Math.max(10, Math.round(it.prescribedGrams * ratioP));
+            if (nextG !== it.grams) {
+              it.grams = nextG;
+              it.autoAdjusted = true;
               cascadeAppliedCount++;
-              break;
             }
-          }
+          });
         }
+      }
+    }
+
+    // 4. VERIFICAÇÃO DE CONFLITO NA ÚLTIMA REFEIÇÃO PENDENTE
+    // Simula o total do dia se todas as refeições pendentes forem registradas com os valores atuais
+    let projectedDay = { kcal: 0, p: 0, c: 0, g: 0 };
+    profile.dailyMeals.forEach(m => {
+      m.items.forEach(it => {
+        const mac = calcItemMacros(it.foodId, it.grams);
+        projectedDay.kcal += mac.kcal;
+        projectedDay.p += mac.p;
+        projectedDay.c += mac.c;
+        projectedDay.g += mac.g;
+      });
+    });
+
+    if (conflictBanner) {
+      const lastMeal = pendingMeals[pendingMeals.length - 1];
+      const protShortfall = Math.round(profile.goals.p - projectedDay.p);
+      const carbShortfall = Math.round(profile.goals.c - projectedDay.c);
+      const carbOverflow = Math.round(projectedDay.c - profile.goals.c);
+      const protOverflow = Math.round(projectedDay.p - profile.goals.p);
+      const kcalOverflow = Math.round(projectedDay.kcal - profile.goals.kcal);
+
+      if (lastMeal && protShortfall > 8 && (carbOverflow > 10 || kcalOverflow > 120)) {
+        conflictBanner.style.display = 'block';
+        conflictBanner.innerHTML = `⚠️ Na última refeição (${lastMeal.name}), para bater a meta de Proteína (faltam ~${protShortfall}g), seria necessário ultrapassar o limite de Carboidratos/Calorias.`;
+      } else if (lastMeal && carbShortfall > 10 && (protOverflow > 10 || kcalOverflow > 120)) {
+        conflictBanner.style.display = 'block';
+        conflictBanner.innerHTML = `⚠️ Na última refeição (${lastMeal.name}), para bater a meta de Carboidratos (faltam ~${carbShortfall}g), seria necessário ultrapassar o limite de Proteína/Calorias.`;
+      } else if (kcalOverflow > 150) {
+        conflictBanner.style.display = 'block';
+        conflictBanner.innerHTML = `⚠️ Projeção do dia acima da meta calórica em +${kcalOverflow} kcal com os ajustes atuais.`;
+      } else {
+        conflictBanner.style.display = 'none';
+        conflictBanner.innerHTML = '';
       }
     }
 
@@ -6957,7 +7253,7 @@
       } else if (totalIntraAdjustments > 0) {
         badge.innerHTML = `⇄ Reajuste intrarrefeição ativo`;
       } else {
-        badge.innerHTML = `↻ Cascata: ${doneSurplusKcal > 0 ? '+' : ''}${doneSurplusKcal} kcal`;
+        badge.innerHTML = `↻ Cascata: ${surplusFromDoneKcal > 0 ? '+' : ''}${surplusFromDoneKcal} kcal`;
       }
     } else {
       badge.className = 'cascade-badge';
@@ -7162,12 +7458,34 @@
       `;
     }
 
+    const lastMealIdx = profile.dailyMeals.length - 1;
+    let projectedFullDay = { kcal: 0, p: 0, c: 0, g: 0 };
+    profile.dailyMeals.forEach(m => {
+      m.items.forEach(it => {
+        const mac = calcItemMacros(it.foodId, it.grams);
+        projectedFullDay.kcal += mac.kcal;
+        projectedFullDay.p += mac.p;
+        projectedFullDay.c += mac.c;
+        projectedFullDay.g += mac.g;
+      });
+    });
+
+    function getMacroStatusClass(val, target, tolLow, tolHigh) {
+      if (val > target + tolHigh) return 'status-over';
+      if (val < target - tolLow) return 'status-deficit';
+      return 'status-ok';
+    }
+
     profile.dailyMeals.forEach((meal, mIdx) => {
-      let mealKcal = 0;
+      const isLastMeal = (mIdx === lastMealIdx);
+      let mealTotals = { kcal: 0, p: 0, c: 0, g: 0 };
       const itemsHtml = meal.items.map((it, iIdx) => {
         const food = getFood(it.foodId);
         const m = calcItemMacros(it.foodId, it.grams);
-        mealKcal += m.kcal;
+        mealTotals.kcal += m.kcal;
+        mealTotals.p += m.p;
+        mealTotals.c += m.c;
+        mealTotals.g += m.g;
 
         let tagHtml = '';
         if (it.foodId !== it.prescribedFoodId) {
@@ -7182,20 +7500,65 @@
           tagHtml = `<span class="adjusted-tag">↻ Ajustado</span>`;
         }
 
+        const sliderMax = Math.max(400, Math.ceil((it.prescribedGrams || it.grams || 100) * 2.5 / 10) * 10);
+        const inlineControlsHtml = (isLastMeal && !meal.done)
+          ? `<div class="inline-quick-adjust" onclick="event.stopPropagation()">
+               <button type="button" class="inline-step-btn" aria-label="Diminuir 5g" onclick="stepLastMealItem(${mIdx}, ${iIdx}, -5)">−</button>
+               <input type="range" class="inline-range-slider" min="5" max="${sliderMax}" step="5" value="${it.grams}"
+                 oninput="previewLastMealSlider(${mIdx}, ${iIdx}, this.value)"
+                 onchange="commitLastMealSlider(${mIdx}, ${iIdx}, this.value)">
+               <button type="button" class="inline-step-btn" aria-label="Aumentar 5g" onclick="stepLastMealItem(${mIdx}, ${iIdx}, 5)">+</button>
+             </div>`
+          : '';
+
         return `
-          <div class="food-row" onclick="openDailyEditModal(${mIdx}, ${iIdx})">
-            <div class="food-info">
-              <span class="food-title">${food.name} ${tagHtml}</span>
-              <span class="food-macros">${m.kcal} kcal • P: ${m.p}g • C: ${m.c}g • G: ${m.g}g</span>
+          <div class="food-row-wrapper">
+            <div class="food-row" onclick="openDailyEditModal(${mIdx}, ${iIdx})">
+              <div class="food-info">
+                <span class="food-title">${food.name} ${tagHtml}</span>
+                <span class="food-macros">${m.kcal} kcal • P: ${m.p}g • C: ${m.c}g • G: ${m.g}g</span>
+              </div>
+              <div class="food-action-hint">
+                <span class="grams-pill" id="last-meal-pill-${mIdx}-${iIdx}">${it.grams}g</span>
+                <button type="button" aria-label="Excluir item" onclick="event.stopPropagation(); removeDailyItem(${mIdx}, ${iIdx})" style="background:none;border:none;color:var(--text-muted);font-size:17px;padding:4px 6px;cursor:pointer;">🗑</button>
+                <span class="edit-chevron">›</span>
+              </div>
             </div>
-            <div class="food-action-hint">
-              <span class="grams-pill">${it.grams}g</span>
-              <button type="button" aria-label="Excluir item" onclick="event.stopPropagation(); removeDailyItem(${mIdx}, ${iIdx})" style="background:none;border:none;color:var(--text-muted);font-size:17px;padding:4px 6px;cursor:pointer;">🗑</button>
-              <span class="edit-chevron">›</span>
-            </div>
+            ${inlineControlsHtml}
           </div>
         `;
       }).join('');
+
+      const doneBadgeHtml = meal.done ? `<span class="done-badge">Finalizada</span>` : '';
+
+      let completedSummaryHtml = '';
+      if (isLastMeal) {
+        const kcalClass = getMacroStatusClass(projectedFullDay.kcal, profile.goals.kcal, 60, 50);
+        const protClass = getMacroStatusClass(projectedFullDay.p, profile.goals.p, 5, 5);
+        const carbClass = getMacroStatusClass(projectedFullDay.c, profile.goals.c, 8, 8);
+
+        completedSummaryHtml = `
+          <div class="last-meal-tracker">
+            <div class="last-meal-row">
+              <span class="meal-summary-label">Total desta refeição:</span>
+              <span class="meal-summary-values">${mealTotals.kcal} kcal • P: ${mealTotals.p.toFixed(1)}g • C: ${mealTotals.c.toFixed(1)}g</span>
+            </div>
+            <div class="last-meal-row daily-proj">
+              <span class="meal-summary-label">Total diário projetado:</span>
+              <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                <span class="macro-pill-status ${kcalClass}">${Math.round(projectedFullDay.kcal)}/${profile.goals.kcal} kcal</span>
+                <span class="macro-pill-status ${protClass}">P: ${Math.round(projectedFullDay.p)}/${profile.goals.p}g</span>
+                <span class="macro-pill-status ${carbClass}">C: ${Math.round(projectedFullDay.c)}/${profile.goals.c}g</span>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (meal.done) {
+        completedSummaryHtml = `<div class="meal-summary-bar">
+             <span class="meal-summary-label">Total da refeição:</span>
+             <span class="meal-summary-values">${mealTotals.kcal} kcal • P: ${mealTotals.p.toFixed(1)}g • C: ${mealTotals.c.toFixed(1)}g</span>
+           </div>`;
+      }
 
       const btnHtml = meal.done
         ? `<button class="btn-completed" onclick="toggleMealDone(${mIdx})">✓ Refeição Registrada (Desfazer)</button>`
@@ -7207,10 +7570,12 @@
             <div class="meal-time-title">
               <span class="time-chip">${meal.time}</span>
               <span class="meal-name">${meal.name}</span>
+              ${doneBadgeHtml}
             </div>
-            <span class="meal-kcal">${mealKcal} kcal</span>
+            <span class="meal-kcal">${mealTotals.kcal} kcal</span>
           </div>
           <div class="food-list">${itemsHtml}</div>
+          ${completedSummaryHtml}
           <div class="meal-footer">
             <button class="btn-add-dashed" onclick="openLooseItemModal(${mIdx})">+ Alimento Avulso</button>
             ${btnHtml}
@@ -7219,7 +7584,92 @@
       `;
     });
 
+    container.innerHTML += `
+      <div class="finish-day-box">
+        <div class="finish-day-title">Encerramento do Dia</div>
+        <div class="finish-day-sub">Salva os registros de hoje no Histórico e aplica o Plano Base completo para o próximo dia.</div>
+        <button class="btn-primary" onclick="finalizeDayToHistory()">✓ Finalizar Dia</button>
+      </div>
+    `;
+
     renderBasePlanEditor();
+    renderHistoryView();
+  }
+
+  function stepLastMealItem(mIdx, iIdx, delta) {
+    const profile = appData.profiles[appData.activeProfile];
+    const item = profile.dailyMeals[mIdx]?.items[iIdx];
+    if (!item) return;
+    item.grams = Math.max(5, (Number(item.grams) || 0) + delta);
+    item.manualOverride = true;
+    item.autoAdjusted = false;
+    item.intraAdjusted = false;
+    saveAppData();
+    renderDashboard();
+  }
+
+  function previewLastMealSlider(mIdx, iIdx, rawVal) {
+    const profile = appData.profiles[appData.activeProfile];
+    const item = profile.dailyMeals[mIdx]?.items[iIdx];
+    if (!item) return;
+    const grams = Math.max(5, Number(rawVal) || 5);
+    item.grams = grams;
+    item.manualOverride = true;
+    item.autoAdjusted = false;
+    item.intraAdjusted = false;
+
+    const pill = document.getElementById(`last-meal-pill-${mIdx}-${iIdx}`);
+    if (pill) pill.textContent = `${grams}g`;
+
+    // Atualiza instantaneamente os totais da refeição e o total diário projetado sem perder o foco do dedo no slider
+    const meal = profile.dailyMeals[mIdx];
+    let mealTotals = { kcal: 0, p: 0, c: 0 };
+    meal.items.forEach(it => {
+      const mac = calcItemMacros(it.foodId, it.grams);
+      mealTotals.kcal += mac.kcal;
+      mealTotals.p += mac.p;
+      mealTotals.c += mac.c;
+    });
+
+    let proj = { kcal: 0, p: 0, c: 0 };
+    profile.dailyMeals.forEach(m => {
+      m.items.forEach(it => {
+        const mac = calcItemMacros(it.foodId, it.grams);
+        proj.kcal += mac.kcal;
+        proj.p += mac.p;
+        proj.c += mac.c;
+      });
+    });
+
+    const card = pill?.closest('.meal-card');
+    if (card) {
+      const topKcal = card.querySelector('.meal-kcal');
+      if (topKcal) topKcal.textContent = `${mealTotals.kcal} kcal`;
+      const sumVal = card.querySelector('.meal-summary-values');
+      if (sumVal) sumVal.textContent = `${mealTotals.kcal} kcal • P: ${mealTotals.p.toFixed(1)}g • C: ${mealTotals.c.toFixed(1)}g`;
+      const pills = card.querySelectorAll('.daily-proj .macro-pill-status');
+      if (pills.length === 3) {
+        const getCls = (val, target, tolL, tolH) => val > target + tolH ? 'status-over' : (val < target - tolL ? 'status-deficit' : 'status-ok');
+        pills[0].className = `macro-pill-status ${getCls(proj.kcal, profile.goals.kcal, 60, 50)}`;
+        pills[0].textContent = `${Math.round(proj.kcal)}/${profile.goals.kcal} kcal`;
+        pills[1].className = `macro-pill-status ${getCls(proj.p, profile.goals.p, 5, 5)}`;
+        pills[1].textContent = `P: ${Math.round(proj.p)}/${profile.goals.p}g`;
+        pills[2].className = `macro-pill-status ${getCls(proj.c, profile.goals.c, 8, 8)}`;
+        pills[2].textContent = `C: ${Math.round(proj.c)}/${profile.goals.c}g`;
+      }
+    }
+  }
+
+  function commitLastMealSlider(mIdx, iIdx, rawVal) {
+    const profile = appData.profiles[appData.activeProfile];
+    const item = profile.dailyMeals[mIdx]?.items[iIdx];
+    if (!item) return;
+    item.grams = Math.max(5, Number(rawVal) || 5);
+    item.manualOverride = true;
+    item.autoAdjusted = false;
+    item.intraAdjusted = false;
+    saveAppData();
+    renderDashboard();
   }
 
   function removeDailyItem(mIdx, iIdx) {
@@ -7344,7 +7794,44 @@
     const grams = Number(document.getElementById('modal-food-grams').value) || 0;
     const m = calcItemMacros(foodId, grams);
     document.getElementById('modal-food-macros').textContent =
-      `Consumo atualizado: ${m.kcal} kcal • Prot: ${m.p}g • Carbo: ${m.c}g • Gord: ${m.g}g`;
+      `Item atualizado: ${m.kcal} kcal • Prot: ${m.p}g • Carbo: ${m.c}g • Gord: ${m.g}g`;
+
+    const simBox = document.getElementById('modal-daily-sim-box');
+    if (simBox && editingDailyTarget) {
+      const { mIdx, iIdx } = editingDailyTarget;
+      const profile = appData.profiles[appData.activeProfile];
+      let simDay = { kcal: 0, p: 0, c: 0 };
+      profile.dailyMeals.forEach((meal, idxM) => {
+        meal.items.forEach((it, idxI) => {
+          if (idxM === mIdx && idxI === iIdx) {
+            simDay.kcal += m.kcal;
+            simDay.p += m.p;
+            simDay.c += m.c;
+          } else {
+            const mac = calcItemMacros(it.foodId, it.grams);
+            simDay.kcal += mac.kcal;
+            simDay.p += mac.p;
+            simDay.c += mac.c;
+          }
+        });
+      });
+
+      const getCls = (val, target, tolL, tolH) => {
+        if (val > target + tolH) return 'status-over';
+        if (val < target - tolL) return 'status-deficit';
+        return 'status-ok';
+      };
+
+      simBox.style.display = 'flex';
+      simBox.innerHTML = `
+        <span style="font-weight:700; color:var(--text-muted);">Simulação do Total Diário com este ajuste:</span>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="macro-pill-status ${getCls(simDay.kcal, profile.goals.kcal, 60, 50)}">${Math.round(simDay.kcal)}/${profile.goals.kcal} kcal</span>
+          <span class="macro-pill-status ${getCls(simDay.p, profile.goals.p, 5, 5)}">P: ${Math.round(simDay.p)}/${profile.goals.p}g</span>
+          <span class="macro-pill-status ${getCls(simDay.c, profile.goals.c, 8, 8)}">C: ${Math.round(simDay.c)}/${profile.goals.c}g</span>
+        </div>
+      `;
+    }
   }
 
   function saveDailyFoodEdit() {
@@ -7604,7 +8091,185 @@
   function syncDailyWithBaseChanges() {
     const profile = appData.profiles[appData.activeProfile];
     profile.baseMeals = sortMealsByTime(profile.baseMeals);
+
+    // Preserva refeições já registradas (done === true) no dia corrente e atualiza apenas as não registradas
+    const doneMealsMap = new Map();
+    const pendingMealsMap = new Map();
+
+    (profile.dailyMeals || []).forEach(m => {
+      if (m.done) {
+        doneMealsMap.set(m.id, m);
+      } else {
+        pendingMealsMap.set(m.id, m);
+      }
+    });
+
+    const mergedMeals = [];
+
+    // Reinsere todas as refeições já finalizadas preservando exatamente seus lançamentos
+    doneMealsMap.forEach(dm => {
+      mergedMeals.push(dm);
+    });
+
+    // Atualiza ou cria apenas as refeições ainda NÃO registradas conforme o novo Plano Base
+    profile.baseMeals.forEach(bm => {
+      if (doneMealsMap.has(bm.id)) return;
+
+      const existingPending = pendingMealsMap.get(bm.id);
+      const customExtraItems = existingPending
+        ? existingPending.items.filter(it => it.isAvulso || it.manualOverride)
+        : [];
+
+      const updatedItems = bm.items.map(it => ({
+        foodId: it.foodId,
+        grams: it.grams,
+        prescribedFoodId: it.foodId,
+        prescribedGrams: it.grams,
+        manualOverride: false,
+        autoAdjusted: false,
+        intraAdjusted: false
+      }));
+
+      // Mantém itens avulsos/manuais que já haviam sido lançados naquela refeição ainda não registrada
+      customExtraItems.forEach(ext => updatedItems.push(ext));
+
+      mergedMeals.push({
+        id: bm.id,
+        time: bm.time,
+        name: bm.name,
+        done: false,
+        isExtraToday: false,
+        items: updatedItems
+      });
+    });
+
+    // Mantém refeições extras do dia que ainda não foram finalizadas
+    (profile.dailyMeals || []).forEach(m => {
+      if (!m.done && m.isExtraToday && !mergedMeals.some(x => x.id === m.id)) {
+        mergedMeals.push(m);
+      }
+    });
+
+    profile.dailyMeals = sortMealsByTime(mergedMeals);
+  }
+
+  function finalizeDayToHistory() {
+    const profile = appData.profiles[appData.activeProfile];
+    if (!confirm(`Deseja finalizar o dia de ${profile.name} e gravar no Histórico? O plano base completo passará a valer no próximo dia.`)) {
+      return;
+    }
+
+    if (!Array.isArray(profile.history)) {
+      profile.history = [];
+    }
+
+    let totals = { kcal: 0, p: 0, c: 0, g: 0 };
+    const recordedMealsSummary = [];
+
+    (profile.dailyMeals || []).forEach(meal => {
+      let mKcal = 0, mP = 0, mC = 0, mG = 0;
+      meal.items.forEach(it => {
+        const mac = calcItemMacros(it.foodId, it.grams);
+        mKcal += mac.kcal;
+        mP += mac.p;
+        mC += mac.c;
+        mG += mac.g;
+      });
+      if (meal.done) {
+        totals.kcal += mKcal;
+        totals.p += mP;
+        totals.c += mC;
+        totals.g += mG;
+      }
+      recordedMealsSummary.push({
+        time: meal.time,
+        name: meal.name,
+        done: Boolean(meal.done),
+        kcal: mKcal,
+        p: +mP.toFixed(1),
+        c: +mC.toFixed(1)
+      });
+    });
+
+    profile.history.unshift({
+      id: 'hist_' + Date.now(),
+      date: getTodayDateString(),
+      finishedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      goals: { ...profile.goals },
+      consumed: {
+        kcal: totals.kcal,
+        p: +totals.p.toFixed(1),
+        c: +totals.c.toFixed(1),
+        g: +totals.g.toFixed(1)
+      },
+      meals: recordedMealsSummary
+    });
+
+    // Aplica o Plano Base completo para o novo dia
+    profile.baseMeals = sortMealsByTime(profile.baseMeals);
     profile.dailyMeals = buildDailyFromBase(profile.baseMeals);
+    appData.currentDate = getTodayDateString();
+
+    saveAppData();
+    renderDashboard();
+    alert('Dia gravado no Histórico! O novo dia foi iniciado com o Plano Base completo.');
+  }
+
+  function renderHistoryView() {
+    const profile = appData.profiles[appData.activeProfile];
+    const container = document.getElementById('history-container');
+    const header = document.getElementById('history-header-title');
+    if (!container) return;
+
+    const historyList = Array.isArray(profile.history) ? profile.history : [];
+    if (header) {
+      header.textContent = `Histórico — ${profile.name} (${historyList.length})`;
+    }
+
+    if (historyList.length === 0) {
+      container.innerHTML = `
+        <div class="hero-card" style="text-align: center; color: var(--text-muted); font-size: 13px;">
+          Nenhum dia finalizado ainda para <strong>${profile.name}</strong>. Use o botão <strong>Finalizar Dia</strong> ao final das refeições no Diário.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = historyList.map(entry => {
+      const mealsLines = (entry.meals || []).map(m =>
+        `<div style="font-size: 11.5px; color: var(--text-muted); display:flex; justify-content:space-between; padding: 3px 0;">
+          <span>${m.done ? '✓' : '○'} ${m.time} • ${m.name}</span>
+          <span>${m.kcal} kcal • P: ${m.p}g • C: ${m.c}g</span>
+        </div>`
+      ).join('');
+
+      return `
+        <article class="history-card">
+          <div class="history-top">
+            <span class="history-date">📅 ${entry.date} (${entry.finishedAt || ''})</span>
+            <span class="grams-pill">${entry.consumed.kcal} / ${entry.goals?.kcal || '-'} kcal</span>
+          </div>
+          <div class="history-macros">
+            Proteínas: <strong>${entry.consumed.p}g</strong> / ${entry.goals?.p || '-'}g •
+            Carboidratos: <strong>${entry.consumed.c}g</strong> / ${entry.goals?.c || '-'}g •
+            Gorduras: <strong>${entry.consumed.g}g</strong> / ${entry.goals?.g || '-'}g
+          </div>
+          <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">
+            ${mealsLines}
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  function clearProfileHistory() {
+    const profile = appData.profiles[appData.activeProfile];
+    if (!Array.isArray(profile.history) || profile.history.length === 0) return;
+    if (confirm(`Deseja apagar todo o histórico de ${profile.name}?`)) {
+      profile.history = [];
+      saveAppData();
+      renderHistoryView();
+    }
   }
 
   function saveBaseItem() {
@@ -7743,6 +8408,7 @@
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     btnEl.classList.add('active');
     if (tabName === 'taco') renderTacoList();
+    if (tabName === 'historico') renderHistoryView();
   }
 
   function setTacoFilter(cat, chipEl) {
