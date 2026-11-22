@@ -8116,8 +8116,9 @@
       if (doneMealsMap.has(bm.id)) return;
 
       const existingPending = pendingMealsMap.get(bm.id);
-      const customExtraItems = existingPending
-        ? existingPending.items.filter(it => it.isAvulso || it.manualOverride)
+      // Preserva apenas itens explicitamente adicionados como avulsos (isAvulso === true)
+      const looseItems = existingPending
+        ? existingPending.items.filter(it => Boolean(it.isAvulso))
         : [];
 
       const updatedItems = bm.items.map(it => ({
@@ -8130,8 +8131,13 @@
         intraAdjusted: false
       }));
 
-      // Mantém itens avulsos/manuais que já haviam sido lançados naquela refeição ainda não registrada
-      customExtraItems.forEach(ext => updatedItems.push(ext));
+      // Reanexa apenas itens avulsos que não já estejam exatamente iguais no plano base
+      looseItems.forEach(ext => {
+        updatedItems.push({
+          ...ext,
+          isAvulso: true
+        });
+      });
 
       mergedMeals.push({
         id: bm.id,
