@@ -1584,6 +1584,7 @@
       <button class="btn-ghost" style="padding: 12px; text-align: left;" onclick="forceCloudPull()">🔄 Forçar Atualização da Nuvem Agora</button>
       <button class="btn-ghost" style="padding: 12px; text-align: left;" onclick="closeModal('settings-modal'); openNewUserModal();">➕ Criar Novo Perfil de Usuário</button>
       <button class="btn-ghost" style="padding: 12px; text-align: left;" onclick="toggleTheme()">🌓 Alternar Tema Claro / Escuro</button>
+      <button class="btn-ghost" id="btn-cascade-mode" style="padding: 12px; text-align: left;" onclick="toggleCascadeScopeMode()">🎯 Escopo do Ajuste: Próxima Refeição (Padrão)</button>
       <button class="btn-ghost" style="padding: 12px; text-align: left;" onclick="exportData()">📤 Exportar Backup Completo (JSON)</button>
       <button class="btn-danger-ghost" style="text-align: left;" onclick="factoryReset()">⚠️ Restaurar Padrões de Fábrica</button>
       <button class="btn-ghost" style="padding: 12px; text-align: center; margin-top: 6px;" onclick="closeModal('settings-modal')">Fechar</button>
@@ -6670,6 +6671,7 @@
   let editingBaseItemTarget = null;
   let editingBaseMealTarget = null;
   let lastMealQuickAdjustUnlocked = false;
+  let cascadeScopeMode = 'next_meal'; // 'next_meal' | 'all_pending'
 
   function getTodayDateString() {
     const now = new Date();
@@ -7130,8 +7132,7 @@
       });
     });
 
-    // 3. COMPENSAÇÃO EM CASCATA NAS REFEIÇÕES SEGUINTES COM BASE NAS METAS DIÁRIAS
-    // Soma o que já foi efetivamente consumido nas refeições finalizadas (`meal.done === true`)
+    // 3. COMPENSAÇÃO FOCADA NA PRÓXIMA REFEIÇÃO (OU TODAS PENDENTES SE CONFIGURADO ASSIM)
     let doneConsumed = { kcal: 0, p: 0, c: 0, g: 0 };
     let donePrescribed = { kcal: 0, p: 0, c: 0, g: 0 };
 
@@ -7158,31 +7159,25 @@
 
     const surplusFromDoneKcal = doneConsumed.kcal - donePrescribed.kcal;
     const pendingMeals = profile.dailyMeals.filter(m => !m.done);
+    const targetMealsForCascade = (cascadeScopeMode === 'all_pending')
+      ? pendingMeals
+      : pendingMeals.slice(0, 1); // Padrão: apenas a próxima refeição pendente
+
     let cascadeAppliedCount = 0;
 
-    // Quanto ainda falta para atingir as metas diárias de Proteína e Carboidrato
-    const remainingTargetProt = Math.max(0, profile.goals.p - doneConsumed.p);
-    const remainingTargetCarb = Math.max(0, profile.goals.c - doneConsumed.c);
-    const remainingTargetKcal = Math.max(0, profile.goals.kcal - doneConsumed.kcal);
+    // Calcula o quanto ainda falta para bater as metas diárias de Proteína e Carboidrato
+    const remainingDailyProt = Math.max(0, profile.goals.p - doneConsumed.p);
+    const remainingDailyCarb = Math.max(0, profile.goals.c - doneConsumed.c);
 
-    if (pendingMeals.length > 0 && doneConsumed.kcal > 0) {
-      // Calcula o quanto os itens fixos/manuais/avulsos das refeições pendentes já entregam
-      let fixedPendingMacros = { kcal: 0, p: 0, c: 0 };
-      pendingMeals.forEach(m => {
-        m.items.forEach(it => {
-          if (it.manualOverride || it.isAvulso) {
-            const mac = calcItemMacros(it.foodId, it.grams);
-            fixedPendingMacros.kcal += mac.kcal;
-            fixedPendingMacros.p += mac.p;
-            fixedPendingMacros.c += mac.c;
-          }
-        });
-      });
+    // Quantidade de refeições pendentes para distribuir o restante da meta diária
+    const pendingCount = Math.max(1, pendingMeals.length);
+    const targetMealsCount = Math.max(1, targetMealsForCascade.length);
 
+    if (targetMealsForCascade.length > 0 && doneConsumed.kcal > 0) {
       const carbAdjustableItems = [];
       const protAdjustableItems = [];
 
-      pendingMeals.forEach(m => {
+      targetMealsForCascade.forEach(m => {
         m.items.forEach(it => {
           if (!it.manualOverride && !it.isAvulso) {
             const grp = getIntraMealGroup(getFood(it.foodId).cat);
@@ -7192,16 +7187,16 @@
         });
       });
 
-      // Ajusta carboidratos nas refeições pendentes para mirar a meta diária de carboidratos
+      // Ajusta carboidratos na(s) refeição(ões) alvo considerando o saldo de carboidratos frente à meta diária
       if (carbAdjustableItems.length > 0) {
-        const targetCarbNeeded = Math.max(0, remainingTargetCarb - fixedPendingMacros.c);
-        const totalCarbCap = carbAdjustableItems.reduce((sum, it) => {
+        const prescribedCarbInTarget = carbAdjustableItems.reduce((sum, it) => {
           const f = getFood(it.foodId);
           return sum + (f.c / 100) * Math.max(10, it.prescribedGrams);
         }, 0);
 
-        if (totalCarbCap > 0) {
-          const ratioC = Math.max(0.15, Math.min(1.6, targetCarbNeeded / totalCarbCap));
+        const shareCarbTarget = (remainingDailyCarb / pendingCount) * targetMealsCount;
+        if (prescribedCarbInTarget > 0 && shareCarbTarget > 0) {
+          const ratioC = Math.max(0.7, Math.min(1.4, shareCarbTarget / prescribedCarbInTarget));
           carbAdjustableItems.forEach(it => {
             const nextG = Math.max(10, Math.round(it.prescribedGrams * ratioC));
             if (nextG !== it.grams) {
@@ -7213,16 +7208,16 @@
         }
       }
 
-      // Ajusta proteínas nas refeições pendentes para mirar a meta diária de proteínas
+      // Ajusta proteínas na(s) refeição(ões) alvo considerando a necessidade proteica real até a meta diária
       if (protAdjustableItems.length > 0) {
-        const targetProtNeeded = Math.max(0, remainingTargetProt - fixedPendingMacros.p);
-        const totalProtCap = protAdjustableItems.reduce((sum, it) => {
+        const prescribedProtInTarget = protAdjustableItems.reduce((sum, it) => {
           const f = getFood(it.foodId);
           return sum + (f.p / 100) * Math.max(10, it.prescribedGrams);
         }, 0);
 
-        if (totalProtCap > 0) {
-          const ratioP = Math.max(0.2, Math.min(1.6, targetProtNeeded / totalProtCap));
+        const shareProtTarget = (remainingDailyProt / pendingCount) * targetMealsCount;
+        if (prescribedProtInTarget > 0 && shareProtTarget > 0) {
+          const ratioP = Math.max(0.75, Math.min(1.5, shareProtTarget / prescribedProtInTarget));
           protAdjustableItems.forEach(it => {
             const nextG = Math.max(10, Math.round(it.prescribedGrams * ratioP));
             if (nextG !== it.grams) {
@@ -7675,11 +7670,17 @@
     document.getElementById('modal-food-compat-label').textContent = `Grupo: ${compatRule.label}`;
 
     const banner = document.getElementById('modal-equiv-banner');
-    if (item.prescribedGrams > 0) {
+    const currentItemFood = getFood(item.foodId);
+    const currentItemMacros = calcItemMacros(item.foodId, item.grams);
+    if (item.grams > 0 || item.prescribedGrams > 0) {
       banner.style.display = 'flex';
+      const baseInfo = item.prescribedGrams > 0
+        ? `<span style="color: var(--text-muted); font-size: 11px;">Plano Base: ${prescribedFood.name} (${item.prescribedGrams}g • ${prescribedMacros.c}g carb)</span>`
+        : '';
       banner.innerHTML = `
-        <span><strong>Prescrição do Plano Base:</strong> ${prescribedFood.name} (${item.prescribedGrams}g)</span>
-        <span style="color: var(--text-muted); font-size: 11px;">Alvo original: ${prescribedMacros.kcal} kcal • P: ${prescribedMacros.p}g • C: ${prescribedMacros.c}g • G: ${prescribedMacros.g}g</span>
+        <span><strong>Valor ajustado na refeição:</strong> ${currentItemFood.name} (${item.grams}g)</span>
+        <span style="color: var(--text-muted); font-size: 11px;">Base de equivalência: ${currentItemMacros.kcal} kcal • P: ${currentItemMacros.p}g • C: ${currentItemMacros.c}g • G: ${currentItemMacros.g}g</span>
+        ${baseInfo}
       `;
     } else {
       banner.style.display = 'none';
@@ -7731,12 +7732,11 @@
       return;
     }
 
+    const basisGrams = (Number(item.grams) > 0) ? Number(item.grams) : (Number(item.prescribedGrams) || 100);
     const currentTargetId = preferredFoodId || select.value || item.foodId;
     select.innerHTML = compatibleFoods.map(f => {
-      const eq = item.prescribedGrams > 0
-        ? calculateEquivalentGrams(item.prescribedFoodId, item.prescribedGrams, f.id).grams
-        : item.grams;
-      const labelEq = (f.id === item.prescribedFoodId) ? `${eq}g (Plano)` : `≈ ${eq}g equiv.`;
+      const eq = calculateEquivalentGrams(item.prescribedFoodId, basisGrams, f.id).grams;
+      const labelEq = (f.id === item.prescribedFoodId) ? `${eq}g (Atual)` : `≈ ${eq}g equiv.`;
       const star = f.isCustom ? '⭐ ' : '';
       return `<option value="${f.id}" ${f.id === currentTargetId ? 'selected' : ''}>${star}${f.name} — ${labelEq}</option>`;
     }).join('');
@@ -7753,8 +7753,9 @@
     const item = appData.profiles[appData.activeProfile].dailyMeals[mIdx].items[iIdx];
     const selectedFoodId = document.getElementById('modal-food-select').value;
 
-    if (item.prescribedGrams > 0) {
-      const conversion = calculateEquivalentGrams(item.prescribedFoodId, item.prescribedGrams, selectedFoodId);
+    const basisGrams = (Number(item.grams) > 0) ? Number(item.grams) : (Number(item.prescribedGrams) || 100);
+    if (basisGrams > 0) {
+      const conversion = calculateEquivalentGrams(item.prescribedFoodId, basisGrams, selectedFoodId);
       document.getElementById('modal-food-grams').value = conversion.grams;
       document.getElementById('modal-calc-basis').textContent = conversion.basisText;
     }
@@ -8463,7 +8464,22 @@
     alert('Compensação em Cascata + Reajuste Intrarrefeição: Alterar um item dentro de uma refeição recalcula automaticamente os alimentos compatíveis da mesma refeição. Ao registrar a refeição, qualquer saldo residual é repassado para a próxima.');
   }
 
+  function updateCascadeModeButtonLabel() {
+    const btn = document.getElementById('btn-cascade-mode');
+    if (!btn) return;
+    btn.textContent = cascadeScopeMode === 'next_meal'
+      ? '🎯 Escopo do Ajuste: Próxima Refeição (Padrão)'
+      : '🎯 Escopo do Ajuste: Todas as Refeições Pendentes';
+  }
+
+  function toggleCascadeScopeMode() {
+    cascadeScopeMode = (cascadeScopeMode === 'next_meal') ? 'all_pending' : 'next_meal';
+    updateCascadeModeButtonLabel();
+    renderDashboard();
+  }
+
   function openSettingsModal() {
+    updateCascadeModeButtonLabel();
     document.getElementById('settings-modal').classList.add('open');
   }
 
