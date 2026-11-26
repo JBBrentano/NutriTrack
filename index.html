@@ -6713,6 +6713,7 @@
     return {
       activeProfile: 'jean',
       currentDate: getTodayDateString(),
+      cascadeScopeMode: 'next_meal',
       updatedAt: Date.now(),
       customFoods: [],
       profiles: profilesInit
@@ -7132,7 +7133,11 @@
       });
     });
 
-    // 3. COMPENSAÇÃO FOCADA NA PRÓXIMA REFEIÇÃO (OU TODAS PENDENTES SE CONFIGURADO ASSIM)
+    // 3. COMPENSAÇÃO E CONVERGÊNCIA PARA AS METAS DIÁRIAS
+    if (appData.cascadeScopeMode) {
+      cascadeScopeMode = appData.cascadeScopeMode;
+    }
+
     let doneConsumed = { kcal: 0, p: 0, c: 0, g: 0 };
     let donePrescribed = { kcal: 0, p: 0, c: 0, g: 0 };
 
@@ -7159,21 +7164,52 @@
 
     const surplusFromDoneKcal = doneConsumed.kcal - donePrescribed.kcal;
     const pendingMeals = profile.dailyMeals.filter(m => !m.done);
+
+    // Filtra apenas refeições pendentes que tenham pelo menos 1 item livre (não manualOverride e não isAvulso)
+    const adjustablePendingMeals = pendingMeals.filter(m =>
+      m.items.some(it => !it.manualOverride && !it.isAvulso)
+    );
+
     const targetMealsForCascade = (cascadeScopeMode === 'all_pending')
-      ? pendingMeals
-      : pendingMeals.slice(0, 1); // Padrão: apenas a próxima refeição pendente
+      ? adjustablePendingMeals
+      : adjustablePendingMeals.slice(0, 1);
 
     let cascadeAppliedCount = 0;
 
-    // Calcula o quanto ainda falta para bater as metas diárias de Proteína e Carboidrato
-    const remainingDailyProt = Math.max(0, profile.goals.p - doneConsumed.p);
-    const remainingDailyCarb = Math.max(0, profile.goals.c - doneConsumed.c);
+    if (targetMealsForCascade.length > 0) {
+      // Soma tudo que já está fixo (manualOverride ou isAvulso) em TODAS as refeições pendentes (ex: Lanche da Tarde editado manualmente)
+      let fixedPending = { kcal: 0, p: 0, c: 0, g: 0 };
+      pendingMeals.forEach(m => {
+        m.items.forEach(it => {
+          if (it.manualOverride || it.isAvulso) {
+            const mac = calcItemMacros(it.foodId, it.grams);
+            fixedPending.kcal += mac.kcal;
+            fixedPending.p += mac.p;
+            fixedPending.c += mac.c;
+            fixedPending.g += mac.g;
+          }
+        });
+      });
 
-    // Quantidade de refeições pendentes para distribuir o restante da meta diária
-    const pendingCount = Math.max(1, pendingMeals.length);
-    const targetMealsCount = Math.max(1, targetMealsForCascade.length);
+      // Se houver refeições ajustáveis DEPOIS das refeições alvo (caso haja mais de uma), considera sua prescrição base
+      let laterAdjustablePrescribed = { kcal: 0, p: 0, c: 0, g: 0 };
+      if (cascadeScopeMode !== 'all_pending') {
+        adjustablePendingMeals.slice(1).forEach(m => {
+          m.items.forEach(it => {
+            if (!it.manualOverride && !it.isAvulso) {
+              const mac = calcItemMacros(it.foodId, it.prescribedGrams || it.grams);
+              laterAdjustablePrescribed.kcal += mac.kcal;
+              laterAdjustablePrescribed.p += mac.p;
+              laterAdjustablePrescribed.c += mac.c;
+              laterAdjustablePrescribed.g += mac.g;
+            }
+          });
+        });
+      }
 
-    if (targetMealsForCascade.length > 0 && doneConsumed.kcal > 0) {
+      const targetProtForCascade = Math.max(0, profile.goals.p - doneConsumed.p - fixedPending.p - laterAdjustablePrescribed.p);
+      const targetCarbForCascade = Math.max(0, profile.goals.c - doneConsumed.c - fixedPending.c - laterAdjustablePrescribed.c);
+
       const carbAdjustableItems = [];
       const protAdjustableItems = [];
 
@@ -7187,16 +7223,14 @@
         });
       });
 
-      // Ajusta carboidratos na(s) refeição(ões) alvo considerando o saldo de carboidratos frente à meta diária
       if (carbAdjustableItems.length > 0) {
         const prescribedCarbInTarget = carbAdjustableItems.reduce((sum, it) => {
           const f = getFood(it.foodId);
           return sum + (f.c / 100) * Math.max(10, it.prescribedGrams);
         }, 0);
 
-        const shareCarbTarget = (remainingDailyCarb / pendingCount) * targetMealsCount;
-        if (prescribedCarbInTarget > 0 && shareCarbTarget > 0) {
-          const ratioC = Math.max(0.7, Math.min(1.4, shareCarbTarget / prescribedCarbInTarget));
+        if (prescribedCarbInTarget > 0) {
+          const ratioC = Math.max(0.1, Math.min(3.5, targetCarbForCascade / prescribedCarbInTarget));
           carbAdjustableItems.forEach(it => {
             const nextG = Math.max(10, Math.round(it.prescribedGrams * ratioC));
             if (nextG !== it.grams) {
@@ -7208,16 +7242,14 @@
         }
       }
 
-      // Ajusta proteínas na(s) refeição(ões) alvo considerando a necessidade proteica real até a meta diária
       if (protAdjustableItems.length > 0) {
         const prescribedProtInTarget = protAdjustableItems.reduce((sum, it) => {
           const f = getFood(it.foodId);
           return sum + (f.p / 100) * Math.max(10, it.prescribedGrams);
         }, 0);
 
-        const shareProtTarget = (remainingDailyProt / pendingCount) * targetMealsCount;
-        if (prescribedProtInTarget > 0 && shareProtTarget > 0) {
-          const ratioP = Math.max(0.75, Math.min(1.5, shareProtTarget / prescribedProtInTarget));
+        if (prescribedProtInTarget > 0) {
+          const ratioP = Math.max(0.1, Math.min(3.5, targetProtForCascade / prescribedProtInTarget));
           protAdjustableItems.forEach(it => {
             const nextG = Math.max(10, Math.round(it.prescribedGrams * ratioP));
             if (nextG !== it.grams) {
@@ -8465,6 +8497,9 @@
   }
 
   function updateCascadeModeButtonLabel() {
+    if (appData && appData.cascadeScopeMode) {
+      cascadeScopeMode = appData.cascadeScopeMode;
+    }
     const btn = document.getElementById('btn-cascade-mode');
     if (!btn) return;
     btn.textContent = cascadeScopeMode === 'next_meal'
@@ -8473,8 +8508,11 @@
   }
 
   function toggleCascadeScopeMode() {
-    cascadeScopeMode = (cascadeScopeMode === 'next_meal') ? 'all_pending' : 'next_meal';
+    const nextMode = (cascadeScopeMode === 'next_meal') ? 'all_pending' : 'next_meal';
+    cascadeScopeMode = nextMode;
+    appData.cascadeScopeMode = nextMode;
     updateCascadeModeButtonLabel();
+    saveAppData();
     renderDashboard();
   }
 
