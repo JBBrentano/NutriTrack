@@ -7163,6 +7163,7 @@
     });
 
     const surplusFromDoneKcal = doneConsumed.kcal - donePrescribed.kcal;
+
     const pendingMeals = profile.dailyMeals.filter(m => !m.done);
 
     // Filtra apenas refeições pendentes que tenham pelo menos 1 item livre (não manualOverride e não isAvulso)
@@ -7177,7 +7178,7 @@
     let cascadeAppliedCount = 0;
 
     if (targetMealsForCascade.length > 0) {
-      // Soma tudo que já está fixo (manualOverride ou isAvulso) em TODAS as refeições pendentes (ex: Lanche da Tarde editado manualmente)
+      // Soma tudo que já está fixo (manualOverride ou isAvulso) em TODAS as refeições pendentes
       let fixedPending = { kcal: 0, p: 0, c: 0, g: 0 };
       pendingMeals.forEach(m => {
         m.items.forEach(it => {
@@ -7191,7 +7192,7 @@
         });
       });
 
-      // Se houver refeições ajustáveis DEPOIS das refeições alvo (caso haja mais de uma), considera sua prescrição base
+      // Se houver refeições ajustáveis DEPOIS das refeições alvo (no modo 'next_meal'), considera sua prescrição base
       let laterAdjustablePrescribed = { kcal: 0, p: 0, c: 0, g: 0 };
       if (cascadeScopeMode !== 'all_pending') {
         adjustablePendingMeals.slice(1).forEach(m => {
@@ -7207,6 +7208,7 @@
         });
       }
 
+      // O alvo real para as refeições alvo é sempre o saldo restante frente à META DIÁRIA (goals)
       const targetProtForCascade = Math.max(0, profile.goals.p - doneConsumed.p - fixedPending.p - laterAdjustablePrescribed.p);
       const targetCarbForCascade = Math.max(0, profile.goals.c - doneConsumed.c - fixedPending.c - laterAdjustablePrescribed.c);
 
@@ -7562,6 +7564,11 @@
              </div>`
           : '';
 
+        const hasAutoAdjust = (it.autoAdjusted || it.intraAdjusted) && Number(it.prescribedGrams) > 0 && Number(it.grams) !== Number(it.prescribedGrams);
+        const origStrikethroughHtml = hasAutoAdjust
+          ? `<s style="font-size: 11px; color: var(--text-muted); font-weight: 600; line-height: 1;">${it.prescribedGrams}g</s>`
+          : '';
+
         return `
           <div class="food-row-wrapper">
             <div class="food-row" onclick="openDailyEditModal(${mIdx}, ${iIdx})">
@@ -7570,7 +7577,10 @@
                 <span class="food-macros">${m.kcal} kcal • P: ${m.p}g • C: ${m.c}g • G: ${m.g}g</span>
               </div>
               <div class="food-action-hint">
-                <span class="grams-pill" id="last-meal-pill-${mIdx}-${iIdx}">${it.grams}g</span>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                  ${origStrikethroughHtml}
+                  <span class="grams-pill" id="last-meal-pill-${mIdx}-${iIdx}">${it.grams}g</span>
+                </div>
                 <button type="button" aria-label="Excluir item" onclick="event.stopPropagation(); removeDailyItem(${mIdx}, ${iIdx})" style="background:none;border:none;color:var(--text-muted);font-size:17px;padding:4px 6px;cursor:pointer;">🗑</button>
                 <span class="edit-chevron">›</span>
               </div>
@@ -7594,11 +7604,12 @@
               : `<button type="button" class="lock-toggle-btn" onclick="toggleLastMealQuickAdjust()">🔓 Ajustar porções (−5g / +5g)</button>`)
           : '';
 
+        const fatClass = getMacroStatusClass(projectedFullDay.g, profile.goals.g, 5, 5);
         completedSummaryHtml = `
           <div class="last-meal-tracker">
             <div class="last-meal-row">
               <span class="meal-summary-label">Total desta refeição:</span>
-              <span class="meal-summary-values">${mealTotals.kcal} kcal • P: ${mealTotals.p.toFixed(1)}g • C: ${mealTotals.c.toFixed(1)}g</span>
+              <span class="meal-summary-values">${mealTotals.kcal} kcal • P: ${mealTotals.p.toFixed(1)}g • C: ${mealTotals.c.toFixed(1)}g • G: ${mealTotals.g.toFixed(1)}g</span>
             </div>
             <div class="last-meal-row daily-proj">
               <span class="meal-summary-label">Total diário projetado:</span>
@@ -7606,6 +7617,7 @@
                 <span class="macro-pill-status ${kcalClass}">${Math.round(projectedFullDay.kcal)}/${profile.goals.kcal} kcal</span>
                 <span class="macro-pill-status ${protClass}">P: ${Math.round(projectedFullDay.p)}/${profile.goals.p}g</span>
                 <span class="macro-pill-status ${carbClass}">C: ${Math.round(projectedFullDay.c)}/${profile.goals.c}g</span>
+                <span class="macro-pill-status ${fatClass}">G: ${projectedFullDay.g.toFixed(1)}/${profile.goals.g}g</span>
               </div>
             </div>
             ${lockBtnHtml}
@@ -7614,7 +7626,7 @@
       } else if (meal.done) {
         completedSummaryHtml = `<div class="meal-summary-bar">
              <span class="meal-summary-label">Total da refeição:</span>
-             <span class="meal-summary-values">${mealTotals.kcal} kcal • P: ${mealTotals.p.toFixed(1)}g • C: ${mealTotals.c.toFixed(1)}g</span>
+             <span class="meal-summary-values">${mealTotals.kcal} kcal • P: ${mealTotals.p.toFixed(1)}g • C: ${mealTotals.c.toFixed(1)}g • G: ${mealTotals.g.toFixed(1)}g</span>
            </div>`;
       }
 
@@ -7977,10 +7989,25 @@
     const delBtn = document.getElementById('btn-delete-profile');
     delBtn.style.display = Object.keys(appData.profiles).length > 1 ? 'inline-block' : 'none';
 
+    let baseSum = { kcal: 0, p: 0, c: 0, g: 0 };
+    profile.baseMeals.forEach(m => {
+      m.items.forEach(it => {
+        const mac = calcItemMacros(it.foodId, it.grams);
+        baseSum.kcal += mac.kcal;
+        baseSum.p += mac.p;
+        baseSum.c += mac.c;
+        baseSum.g += mac.g;
+      });
+    });
+    const diffBaseKcal = baseSum.kcal - profile.goals.kcal;
+    const diffBaseLabel = diffBaseKcal === 0
+      ? 'Alinhado à meta'
+      : (diffBaseKcal > 0 ? `+${diffBaseKcal} kcal acima da meta` : `${diffBaseKcal} kcal abaixo da meta`);
+
     document.getElementById('base-goals-title').textContent =
-      `${profile.name}: ${profile.goals.kcal.toLocaleString('pt-BR')} kcal/dia`;
+      `${profile.name}: Meta ${profile.goals.kcal.toLocaleString('pt-BR')} kcal/dia • Soma Plano: ${baseSum.kcal.toLocaleString('pt-BR')} kcal (${diffBaseLabel})`;
     document.getElementById('base-goals-macros').textContent =
-      `Proteína: ${profile.goals.p}g • Carboidrato: ${profile.goals.c}g • Gordura: ${profile.goals.g}g`;
+      `Meta: P ${profile.goals.p}g • C ${profile.goals.c}g • G ${profile.goals.g}g | Plano: P ${baseSum.p.toFixed(1)}g • C ${baseSum.c.toFixed(1)}g • G ${baseSum.g.toFixed(1)}g`;
 
     const container = document.getElementById('base-plan-editor');
     container.innerHTML = '';
@@ -8493,7 +8520,7 @@
   }
 
   function showCascadeInfo() {
-    alert('Compensação em Cascata + Reajuste Intrarrefeição: Alterar um item dentro de uma refeição recalcula automaticamente os alimentos compatíveis da mesma refeição. Ao registrar a refeição, qualquer saldo residual é repassado para a próxima.');
+    alert('Indicador Informativo de Cascata: O valor em kcal mostra a diferença entre o que foi consumido nas refeições já finalizadas e a prescrição original daquelas refeições. Ele não soma nem subtrai em duplicidade no saldo diário.');
   }
 
   function updateCascadeModeButtonLabel() {
